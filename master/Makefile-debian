@@ -1,0 +1,12 @@
+BOARD_TAG = mega
+BOARD_SUB = atmega2560
+ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
+
+USER_LIB_PATH = $(realpath ../arduino-link)
+
+include /usr/share/arduino/Arduino.mk
+
+CURRENT_TIME = $(shell date +%s)
+CXXFLAGS_STD += -DID=$(NODE_ID) -DCURRENT_TIME=$(CURRENT_TIME)UL -DKEY=\"$(ENC_KEY)\"
+MONITOR_PARMS += -L
+

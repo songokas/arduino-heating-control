@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Sildymas</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta charset="utf-8"  />
+        <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/rivets/0.9.6/rivets.bundled.min.js" type="text/javascript"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+        <style>
+            html {
+                font-size: 14px;
+            }
+            body {
+                font-family: -apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+            }
+            input[type="number"] {
+                width: 5em;
+            }
+        </style>
+
+    </head>
+    <body>
+        <div class="container">
+            <div class="row justify-content-lg-center">
+                <div class="col">
+                    <info>
+                        <h2>Latest data</h2>
+                        <div class="row" style="padding: 10px 0">
+                            <div class="col">Heating:
+                                <span rv-show="heater.on" style="background-color:green">&nbsp;&nbsp;&nbsp;</span>
+                                <span rv-hide="heater.on" style="background-color:red">&nbsp;&nbsp;&nbsp;</span>
+                                <br/>
+                                <small>Boot:{heater.iT|unixToTime}</small>
+                            </div>
+                            <div class="col">
+                                <div rv-each-time="heater.t">
+                                    On: {time.dtOn|unixToTime} Off: {time.dtOff|unixToTime}
+                                </div>
+                            </div>
+                        </div>
+                        <table class="table table-hover">
+                            <colgroup>
+                                <col width="20%" />
+                                <col />
+                                <col />
+                            </colgroup>
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Zone</th>
+                                    <th>Data</th>
+                                    <th>History</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr rv-each-zone="zones">
+                                    <td>
+                                        <div>
+                                            <strong>{zone.n}</strong>
+                                        </div>
+                                        <div>
+                                            <small>
+                                                pin:{zone.pin}
+                                                state: {zone.st}
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>Current temperature: {zone.cT|double}</div>
+                                        <div>Expected temperature: {zone.eT|double}</div>
+                                        <div>Last Received: {zone.dtR|unixToTime}</div>
+                                        <div class="text-warning" rv-each-error="zone.er">
+                                            <small>{error|errorToString}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div rv-each-time="zone.sT">
+                                            On: {time.dtOn|unixToTime} Off: {time.dtOff|unixToTime}
+                                        </div>
+                                    </td>
+
+                                </tr>
+                                <tr rv-hide="zones">
+                                    <td colspan="3">No data received</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </info>
+                    <settings>
+                        <h2>Settings</h2>
+                        <table class="table">
+                            <colgroup>
+                                <col width="30%" />
+                                <col />
+                            </colgroup>
+                            <tbody>
+                                <tr>
+                                    <td>Constant temperature:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" step="0.1" rv-value="settings.config.constantTemperature | double" /> C</td>
+                                </tr>
+                                <tr>
+                                    <td>Constant temperature enabled:</td>
+                                    <td class="text-left"><input type="checkbox" rv-checked="settings.config.constantTemperatureEnabled" /></td>
+                                </tr>
+                                <tr>
+                                    <td>Acctuator warmup time:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" step="0.1" rv-value="settings.config.acctuatorWarmupTime | number" /> seconds</td>
+                                </tr>
+                                <tr>
+                                    <td>Heater pump stop time:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" step="0.1" rv-value="settings.config.heaterPumpStopTime | number" /> seconds</td>
+                                </tr>
+                                <tr>
+                                    <td>Min pwm signal for acctuator:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" rv-value="settings.config.minPwmState | number" /> %</td>
+                                </tr>
+                                <tr>
+                                    <td>Min temperature diff between expected and current temperature that pwm will apply:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" step="0.1" min="0.1" max="1" rv-value="settings.config.minTemperatureDiffForPwm | double" /></td>
+                                </tr>
+                                <tr>
+                                    <td>Temperature drop for heating to restart:</td>
+                                    <td class="text-left"><input class="form-control-inline form-control-sm" type="number" step="0.1" min="0.1" max="2" rv-value="settings.config.temperatureDropWait | double" /></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table class="table table-hover">
+                            <colgroup>
+                                <col width="30%" />
+                                <col />
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Zone</th>
+                                    <th>Temperatures</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr rv-each-zone="settings.config.zones">
+                                    <td class="text-left">
+                                        <div class="form-group">
+                                            <button class="btn btn-primary btn-sm" rv-on-click="settings.removeZone">-</button>
+                                            <input type="text" class="form-control-inline form-control-sm" rv-value="zone.n" maxlength="30" placeholder="e.g. bathroom" />
+                                            <input type="number" class="form-control-inline form-control-sm" rv-value="zone.id | number" max="199" size="3" placeholder="e.g. 2" />
+                                        </div>
+                                    </td>
+                                    <td class="text-left">
+                                        <div rv-each-data="zone.t">
+                                            <div class="form-group">
+                                                <label>From:<input type="number" class="form-control form-control-sm" rv-value="data.f | number" min="0" max="23" size="4" placeholder="e.g. 21" /></label>
+                                                <label>To: <input type="number" class="form-control form-control-sm" rv-value="data.to | number" min="0" max="24" size="4" placeholder="e.g. 23" /></label>
+                                                <label>Expected temperature: <input type="number" class="form-control form-control-sm" rv-value="data.eT | double" step="0.1" min="15" max="30" size="4" placeholder="e.g. 21" /></label>
+                                                <button class="btn btn-primary btn-sm" rv-on-click="settings.removeTime">-</button>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" rv-on-click="settings.addTime">+</button>
+                                    </td>
+                                </tr>
+                                <tr><td colspan="2"><button class="btn btn-primary btn-sm" rv-on-click="settings.addZone">+</button></td></tr>
+                            </tbody>
+                        </table>
+                        <button class="btn btn-primary btn-sm" rv-on-click="settings.save" rv-disabled="settings.updating">Update</button>
+                        <button class="btn btn-primary btn-sm" rv-on-click="settings.clear" rv-disabled="settings.updating">Reset</button>
+                    </settings>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            function ajax(url, data, obj) {
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function() {
+                    if (this.readyState == 4) {
+                        if (this.status == 200) {
+                            obj.reload();
+                        } else {
+                            alert('Failed to update !! Status : ' + this.status + ' Text: ' + this.responseText);
+                        }
+                        obj.updating = false;
+                    }
+                };
+                request.onerror = function() {
+                    alert('Unknow error occured');
+                }
+                request.timeout = 5000;
+                request.open("POST", url);
+                request.setRequestHeader("Content-Type", "application/json");
+                request.send(data);
+            }
+
+            class Settings {
+                constructor(json) {
+                    this.config = json;
+                    this.updating = false;
+                }
+                addZone() {
+                    this.config.zones.push({t:[{}]});
+                }
+                addTime(ev, context, model) {
+                    this.config.zones[model['%zone%']].t.push({});
+                }
+                removeZone(ev, context, model) {
+                    this.config.zones.splice(model.index, 1);
+                }
+                removeTime(ev, context, model) {
+                    this.config.zones[model['%zone%']].t.splice(model.index, 1);
+                }
+                clear() {
+                    this.updating = true;
+                    ajax('/clear/', {}, this);
+                }
+                save() {
+                    this.updating = true;
+                    const data = JSON.stringify(this.config);
+                    ajax('/', data, this);
+
+                }
+                reload() {
+                    window.location.reload();
+                }
+            };
+            const info = `;
+            const settings = ~;
+
+            rivets.configure({
+                handler: function(context, ev, binding) {
+                    var position = binding.keypath.indexOf('.');
+                    if (position > 0) {
+                        var property = binding.keypath.substring(0, position);
+                        return this.call(binding.view.models[property], ev, context, binding.view.models);
+                    }
+                    return this.call(binding.view.models, ev, context, binding.view.models);
+                }
+            });
+            rivets.formatters.unixToTime = function(value) {
+                if (!(value > 0)) {
+                    return 'n/a';
+                }
+                var d = new Date();
+                var date = new Date((value + (d.getTimezoneOffset() * 60)) * 1000);
+                return date.toLocaleDateString('lt-LT') + ' ' + date.toLocaleTimeString('lt-LT')
+            };
+            rivets.formatters.errorToString = function(value) {
+                if (value == 1) {
+                    return "Unable to send data to slave";
+                }
+                return value + " - n/a";
+            };
+            rivets.formatters.number = {
+                read: function(value) { return Math.round(value); },
+                publish: function(value) { return Math.round(value); }
+            };
+            rivets.formatters.double = {
+                read: function(value) { return value ? Math.round(value * 100) / 100 : 0; },
+                publish: function(value) { return value ? Math.round(value * 100) / 100 : 0; },
+            };
+
+            rivets.bind(document.getElementsByTagName('info')[0], info);
+            rivets.bind(document.getElementsByTagName('settings')[0], {settings:new Settings(settings)});
+        </script>
+    </body>
+</html>

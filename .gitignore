@@ -1,0 +1,8 @@
+master/Makefile
+master/build-*
+slave/Makefile
+slave/build-*
+sender/Makefile
+sender/build-*
+tests/build
+tests/test

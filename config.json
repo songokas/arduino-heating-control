@@ -1,0 +1,91 @@
+{
+    "acctuatorWarmupTime": 180,
+    "heaterPumpStopTime": 600,
+    "constantTemperature": 18,
+    "constantTemperatureEnabled": false,
+    "minPwmState": 30,
+    "minTemperatureDiffForPwm": 0.5,
+    "temperatureDropWait": 0.7,
+    "zones": [
+        {
+            "n": "miegamasis",
+            "id": 110,
+            "t": [
+                {"eT": 20.5, "f": 0, "to": 24}
+            ]
+        },
+        {
+            "n": "vaiku",
+            "id": 109,
+            "t": [
+                {"eT": 21, "f": 0, "to": 7},
+                {"eT": 20.5, "f": 7, "to": 20},
+                {"eT": 21, "f": 20, "to": 24}
+            ]
+        },
+        {
+            "n": "darbo",
+            "id": 106,
+            "t": [
+                {"eT": 20.5, "f": 4, "to": 18}
+            ]
+        },
+        {
+            "n": "vonia",
+            "id": 105,
+            "t": [
+                {"eT": 22, "f": 4, "to": 7},
+                {"eT": 21, "f": 7, "to": 23}
+            ]
+        },
+        {
+            "n": "rubine",
+            "id": 103,
+            "t": [
+                {"eT": 20, "f": 4, "to": 7}
+            ]
+        },
+        {
+            "n": "katiline",
+            "id": 34,
+            "t": [
+                {"eT": 20, "f": 4, "to": 7}
+            ]
+        },
+        {
+            "n": "tamburas",
+            "id": 35,
+            "t": [
+                {"eT": 20, "f": 4, "to": 7}
+            ]
+        },
+        {
+            "n": "toletas",
+            "id": 6,
+            "t": [
+                {"eT": 21, "f": 4, "to": 21}
+            ]
+        },
+        {
+            "n": "sveciu",
+            "id": 5,
+            "t": [
+                {"eT": 20.5, "f": 4, "to": 21}
+            ]
+        },
+        {
+            "n": "salionas",
+            "id": 4,
+            "t": [
+                {"eT": 20.5, "f": 4, "to": 21}
+            ]
+        },
+        {
+            "n": "virtuve",
+            "id": 3,
+            "t": [
+                {"eT": 20.5, "f": 4, "to": 21}
+            ]
+        }
+    ]
+}

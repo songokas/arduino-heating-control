@@ -1,0 +1,11 @@
+BOARD_TAG   = nano
+BOARD_SUB   = atmega328
+ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
+
+USER_LIB_PATH = $(realpath ../arduino-link)
+#CXXFLAGS_STD = -Os -std=gnu++14 -ffunction-sections -fdata-sections -flto -Wl,--gc-sections -DID=$(NODE_ID) -DKEY=\"$(ENC_KEY)\"
+ARDUINO_LIBS = Config DallasTemperature Encryptor OneWire PacketHandler RF24 Radio TemperatureSensor Time xxtea-iot-crypt SPI Common
+
+include /usr/share/arduino/Arduino.mk
+
+CXXFLAGS_STD += -DID=$(NODE_ID) -DKEY=\"$(ENC_KEY)\"
