@@ -46,12 +46,12 @@ TEST_CASE( "packet encryption", "[packet]" ) {
 
         packetHandler.prepareSession(session, Config::ADDRESS_SLAVE, data, sizeof(data));
 
-        REQUIRE(session.id == 0);
+        REQUIRE(session.id > 0);
 
         packetHandler.saveSession(Config::ADDRESS_SLAVE, 111);
         packetHandler.prepareSession(session, Config::ADDRESS_SLAVE, data, sizeof(data));
 
-        REQUIRE(session.id == 111);
+        REQUIRE(session.id != 111);
 
     }
 
@@ -72,7 +72,7 @@ TEST_CASE( "packet encryption", "[packet]" ) {
         byte previousIndex = index - 1;
         const byte * address = &index;
         const byte * previousAddress = &previousIndex;
-        REQUIRE(nullptr != packetHandler.getSessionByAddress(previousAddress));
+        REQUIRE(nullptr == packetHandler.getSessionByAddress(previousAddress));
         REQUIRE(nullptr == packetHandler.getSessionByAddress(address));
         packetHandler.saveSession(address, index);
         REQUIRE(nullptr != packetHandler.getSessionByAddress(address));

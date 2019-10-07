@@ -51,6 +51,7 @@ int digitalRead(int pinNumber) {
             return DigitalWriteLogs[i].pinValue;
         }
     }
+    return 0;
 }
 
 int analogRead(int pinNumber) {
