@@ -2,31 +2,38 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24Network.h>
+#include <RF24Mesh.h>
+#include <Crypto.h>
+#include <CryptoLW.h>
+#include <Acorn128.h>
+#include <Entropy.h>
+#include <Streaming.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
 #include <LowPower.h>
 #include <Time.h>
-#include "Common.h"
-#include "Config.h"
-// arduino-mk
-#include <xxtea-iot-crypt.h>
-#include "Encryptor.h"
-#include "PacketHandler.h"
-#include "Radio.h"
-#include "TemperatureSensor.h"
+
+#include "Heating/Common.h"
+#include "Heating/Config.h"
+#include "Heating/TemperatureSensor.h"
+
+#include "CommonModule/MacroHelper.h"
+#include "RadioEncrypted/RadioEncryptedConfig.h"
+#include "RadioEncrypted/Encryption.h"
+#include "RadioEncrypted/EncryptedMesh.h"
+#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
 
 using Heating::Packet;
 using Heating::Config;
 using Heating::TemperatureSensor;
-using Heating::Radio;
 using Heating::printPacket;
 using Heating::timer;
-using Network::Encryptor;
-using Network::PacketHandler;
 
-// these should be defined when building
-//#define ID 105
-//#define KEY key
+using RadioEncrypted::Encryption;
+using RadioEncrypted::EncryptedMesh;
+using RadioEncrypted::IEncryptedMesh;
+using RadioEncrypted::Entropy::AvrEntropyAdapter;
 
 volatile byte notify = 0;
 
@@ -57,14 +64,31 @@ int main()
     pinMode(Config::PIN_BUTTON, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(Config::PIN_BUTTON), setExpected, FALLING);
 
-    RF24 rf(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
+    RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
+    RF24Network network(radio);
+    RF24Mesh mesh(radio, network);
+
+    Acorn128 cipher;
+    EntropyClass entropy;
+    entropy.initialize();
+    AvrEntropyAdapter entropyAdapter(entropy);
+    Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
+    EncryptedMesh encMesh (mesh, network, encryption);
+    mesh.setNodeID(NODE_ID);
+    // Connect to the mesh
+    Serial << F("Connecting to the mesh...") << endl;
+    if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
+        Serial << F("Failed to connect to mesh") << endl;
+    } else {
+        Serial << F("Connected.") << endl;
+    }
+    radio.setPALevel(RF24_PA_LOW);
+
     OneWire oneWire(Config::PIN_TEMPERATURE); 
     DallasTemperature sensors(&oneWire);
-    Encryptor encryptor(KEY);
-    PacketHandler packageHandler;
-    Radio radio(rf, packageHandler, encryptor);
     TemperatureSensor sensor(sensors);
-    Packet packet { ID, 0, 0};
+
+    Packet packet { NODE_ID, 0, 0};
 
     // in case interupt runs
     notify = 0;
@@ -96,16 +120,24 @@ int main()
         }
         packet.currentTemperature = sensor.read();
         packet.expectedTemperature = expectedTemperature;
-        if (!radio.send(Config::ADDRESS_MASTER, &packet, sizeof(packet))) {
+        if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
             Serial.println(F("Failed to send packet to master"));
         }
 
         printPacket(packet);
         Serial.flush();
         radio.powerDown();
-        LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
-        timer(8700);
+
+        uint8_t timeToSleep = 7;
+        uint32_t increaseTimer = timeToSleep * 8700;
+        while (timeToSleep-- > 0) {
+            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+        }
+
+        timer(increaseTimer);
+
         radio.powerUp();
+
         if (notify > 0) {
             buttonPressed++;
             notify = 0;

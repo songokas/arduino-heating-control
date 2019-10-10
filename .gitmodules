@@ -1,0 +1,21 @@
+[submodule "libraries/arduino-tranceiver-encrypted"]
+	path = libraries/arduino-tranceiver-encrypted
+	url = https://github.com/songokas/arduino-tranceiver-encrypted
+[submodule "libraries/arduinolibs"]
+	path = libraries/arduinolibs
+	url = https://github.com/rweather/arduinolibs
+[submodule "libraries/RF24Network"]
+	path = libraries/RF24Network
+	url = https://github.com/nRF24/RF24Network
+[submodule "libraries/RF24Mesh"]
+	path = libraries/RF24Mesh
+	url = https://github.com/nRF24/RF24Mesh
+[submodule "libraries/Streaming"]
+	path = libraries/Streaming
+	url = https://github.com/janelia-arduino/Streaming
+[submodule "master/Arduino-Entropy-Library"]
+	path = master/Arduino-Entropy-Library
+	url = https://github.com/pmjdebruijn/Arduino-Entropy-Library
+[submodule "libraries/Arduino-Entropy-Library"]
+	path = libraries/Arduino-Entropy-Library
+	url = https://github.com/pmjdebruijn/Arduino-Entropy-Library

@@ -4,9 +4,13 @@ ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
 
 USER_LIB_PATH = $(realpath ../arduino-link)
 
+ARDUINO_LIBS = Acorn128 ArduinoJson AuthenticatedCipher Cipher Crypto CryptoLW DallasTemperature Entropy Ethernet OneWire RF24 RF24Mesh RF24Network Streaming Time Timezone EEPROM SPI Wire RadioEncrypted Heating Heating/Domain RadioEncrypted/Entropy TimeService
+
 include /usr/share/arduino/Arduino.mk
 
 CURRENT_TIME = $(shell date +%s)
-CXXFLAGS_STD += -DID=$(NODE_ID) -DCURRENT_TIME=$(CURRENT_TIME)UL -DKEY=\"$(ENC_KEY)\"
+
+# ENC_KEY must be 16 chars long and same accross master, slave, nodes
+CXXFLAGS_STD += -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
 MONITOR_PARMS += -L
 

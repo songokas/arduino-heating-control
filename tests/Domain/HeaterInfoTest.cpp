@@ -2,9 +2,9 @@
 
 #include <Arduino.h>
 #include <Time.h>
-#include "Common.h"
-#include "Config.h"
-#include "HeaterInfo.h"
+#include "Heating/Common.h"
+#include "Heating/Config.h"
+#include "Heating/Domain/HeaterInfo.h"
 
 using Heating::Domain::HeaterInfo;
 

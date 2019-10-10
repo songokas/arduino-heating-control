@@ -1004,11 +1004,11 @@ void	LowPowerClass::powerExtStandby(period_t period, adc_t adc, bod_t bod,
 *			   hardware.
 *
 *******************************************************************************/
-ISR (WDT_vect)
+/*ISR (WDT_vect)
 {
 	// WDIE & WDIF is cleared in hardware upon entering this ISR
 	wdt_disable();
-}
+}*/
 
 #elif defined (__arm__)
 #if defined (__SAMD21G18A__)

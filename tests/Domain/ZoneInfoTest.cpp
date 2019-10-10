@@ -3,9 +3,9 @@
 
 #include <Arduino.h>
 #include <Time.h>
-#include "Common.h"
-#include "Config.h"
-#include "ZoneInfo.h"
+#include "Heating/Common.h"
+#include "Heating/Config.h"
+#include "Heating/Domain/ZoneInfo.h"
 
 using Heating::Domain::ZoneInfo;
 using Heating::Config;

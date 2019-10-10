@@ -1,21 +1,25 @@
 #include <SPI.h>
-#include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24Network.h>
+#include <RF24Mesh.h>
+#include <Crypto.h>
+#include <CryptoLW.h>
+#include <Acorn128.h>
+#include <Entropy.h>
+#include <Streaming.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
 #include <Time.h>
 #include <avr/wdt.h>
-#include "Common.h"
-#include "Config.h"
-// arduino-mk
-#include <xxtea-iot-crypt.h>
-#include "Encryptor.h"
-#include "PacketHandler.h"
-#include "Radio.h"
-#include "TemperatureSensor.h"
+#include "Heating/Common.h"
+#include "Heating/Config.h"
+#include "Heating/TemperatureSensor.h"
 
-//#define ID 106
-//#define KEY key
+#include "CommonModule/MacroHelper.h"
+#include "RadioEncrypted/RadioEncryptedConfig.h"
+#include "RadioEncrypted/Encryption.h"
+#include "RadioEncrypted/EncryptedMesh.h"
+#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
 
 using Heating::Config;
 using Heating::ControllPacket;
@@ -23,73 +27,31 @@ using Heating::Packet;
 using Heating::printPacket;
 using Heating::isPinAvailable;
 using Heating::TemperatureSensor;
-using Heating::Radio;
-using Network::Encryptor;
-using Network::PacketHandler;
 
-struct Acctuator {
-    byte id;
-    unsigned long dtReceived;
-};
+using RadioEncrypted::Encryption;
+using RadioEncrypted::EncryptedMesh;
+using RadioEncrypted::IEncryptedMesh;
+using RadioEncrypted::Entropy::AvrEntropyAdapter;
 
-struct Handler {
-    Acctuator acctuators[Config::MAX_SLAVE_ACCTUATORS] {};
-
-    void handleTimeouts()
-    {
-        unsigned long currentTime = millis();
-        for (auto & acctuator: acctuators) {
-            if (acctuator.id > 0) {
-                Serial.print("Id: ");
-                Serial.print(acctuator.id);
-                Serial.print(" Received: ");
-                Serial.println(acctuator.dtReceived);
-                if (currentTime - acctuator.dtReceived > Config::MAX_DELAY) {
-                    Serial.print("Timeout: ");
-                    Serial.println(acctuator.id);
-                    analogWrite(acctuator.id, 0);
-                    acctuator = {};
-                }
-            }
-        }
-    }
-
-    void addTimeout(byte id)
-    {
-        for (auto & acctuator: acctuators) {
-            if (acctuator.id == id) {
-                acctuator.dtReceived = millis();
-                return;
-            }
-        }
-        for (auto & acctuator: acctuators) {
-            if (acctuator.id == 0) {
-                acctuator = {id, millis()};
-                return;
-            }
-        }
-
-    }
-};
-
-void handleInnerTemperature(TemperatureSensor & sensor, Radio & radio)
-{
-    Packet packet { ID, sensor.read(), 0};
-    printPacket(packet);
-    if (!radio.send(Config::ADDRESS_MASTER, &packet, sizeof(packet), ID)) {
-        Serial.println(F("Failed to send packet"));
-    }
-}
+#include "helpers.h"
 
 int main()
 {
     init();
 
     Serial.begin(Config::SERIAL_RATE); 
-    RF24 rf(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
-    Encryptor encryptor(KEY);
-    PacketHandler packageHandler;
-    Radio radio(rf, packageHandler, encryptor);
+    RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
+    RF24Network network(radio);
+    RF24Mesh mesh(radio, network);
+
+    Acorn128 cipher;
+    EntropyClass entropy;
+    entropy.initialize();
+    AvrEntropyAdapter entropyAdapter(entropy);
+    Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
+    EncryptedMesh encMesh (mesh, network, encryption);
+    mesh.setNodeID(Config::ADDRESS_SLAVE);
+
     Handler handler {};
 
     OneWire oneWire(Config::PIN_TEMPERATURE); 
@@ -98,15 +60,27 @@ int main()
 
     wdt_enable(WDTO_8S);
 
+    // Connect to the mesh
+    Serial << F("Connecting to the mesh...") << endl;
+    if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
+        Serial << F("Failed to connect to mesh") << endl;
+    } else {
+        Serial << F("Connected.") << endl;
+    }
+    radio.setPALevel(RF24_PA_LOW);
+
+    wdt_reset();
+
     // 1 minute
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
     while(true) {
 
-        if (radio.isAvailable(Config::ADDRESS_SLAVE)) {
+        if (encMesh.isAvailable()) {
             wdt_reset();
             ControllPacket received;
-            if (!radio.receive(Config::ADDRESS_SLAVE, &received, sizeof(received))) {
+            RF24NetworkHeader header;
+            if (!encMesh.receive(&received, sizeof(received), 0, header)) {
                 Serial.println(F("Failed to receive for slave"));
                 Serial.println(received.id);
                 continue;
