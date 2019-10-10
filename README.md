@@ -9,7 +9,7 @@
 ## Software dependencies
 
 * [Arduino.mk](https://github.com/sudar/Arduino-Makefile) for building/uploading
-* download/install arduino
+* download/install arduino editor
 
 
 ## Harware dependencies
@@ -69,15 +69,15 @@ ENC_KEY="enckey" NODE_ID=5 make && make upload && make monitor
 
 requires:
 
-* arduino with internet
+* arduino with internet access
 
 
 ```
 cd master
 cp Makefile-debian Makefile # or create/modify
 # update paths/variables in Makefile save
-# any NODE_ID that was not taken before
-ENC_KEY="enckey" NODE_ID=5 make && make upload && make monitor
+# master NODE_ID is defined in Config.h
+ENC_KEY="longlonglongpass" make && make upload && make monitor
 ```
 
 find the ip of the master (nmap, router interface)
@@ -91,8 +91,8 @@ go to http://{master ip} with your browser
 cd slave
 cp Makefile-debian Makefile
 # update paths/variables in Makefile save
-# any NODE_ID that was not taken before
-ENC_KEY="enckey" NODE_ID=106 make && make upload && make monitor
+# slave NODE_ID is define in Config.h
+ENC_KEY="longlonglongpass" make && make upload && make monitor
 ```
 
 ## Tested on
