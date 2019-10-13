@@ -55,6 +55,26 @@ void setExpected() {
     notify++;
 }
 
+
+bool reconnect(RF24Mesh & mesh)
+{
+    if (!mesh.checkConnection() ) {
+        Serial << F("Renewing Mesh Address") << endl;
+        if(!mesh.renewAddress(MESH_TIMEOUT)){
+            return mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT);
+        } else {
+            return true;
+        }
+    } else {
+        auto currentAddress = mesh.getAddress(mesh.getNodeID());
+        if (!(currentAddress > 0)) {
+            Serial << F("Renew address: ") << currentAddress << endl;
+            return mesh.renewAddress(MESH_TIMEOUT);
+        }
+    }
+    return false;
+}
+
 int main()
 {
     init();
@@ -99,6 +119,8 @@ int main()
 
     while(true) {
 
+        mesh.update();
+
         if (buttonPressed > 3) {
             if (expectedTemperature) {
                 Serial.println(F("Notify reset raised temperature"));
@@ -122,6 +144,7 @@ int main()
         packet.expectedTemperature = expectedTemperature;
         if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
             Serial.println(F("Failed to send packet to master"));
+            reconnect(mesh);
         }
 
         printPacket(packet);

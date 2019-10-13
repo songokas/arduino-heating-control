@@ -1,5 +1,5 @@
 BOARD_TAG   = nano
-BOARD_SUB   = atmega328
+BOARD_SUB   = atmega328old
 ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
 
 USER_LIB_PATH=$(realpath ../arduino-link)
