@@ -40,6 +40,7 @@
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
 #include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
+#include "RadioEncrypted/Helpers.h"
 
 using Heating::Packet;
 using Heating::printTime;
@@ -60,6 +61,7 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AvrEntropyAdapter;
+using RadioEncrypted::reconnect;
 
 // defines pin id for master
 //#define ID 34
@@ -147,6 +149,10 @@ int main()
 
     while(true) {
 
+        mesh.update();
+        if (Config::ADDRESS_MASTER == 0) {
+            mesh.DHCP();
+        }
 
         handleRadio(encMesh, processor);
         EthernetClient client = server.available();
@@ -195,6 +201,9 @@ int main()
 
             startTime = currentTime;
 
+            if (Config::ADDRESS_MASTER != 0) {
+                reconnect(mesh);
+            }
         }
 
         wdt_reset();

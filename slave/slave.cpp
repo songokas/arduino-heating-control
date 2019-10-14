@@ -20,6 +20,7 @@
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
 #include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
+#include "RadioEncrypted/Helpers.h"
 
 using Heating::Config;
 using Heating::ControllPacket;
@@ -32,6 +33,7 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AvrEntropyAdapter;
+using RadioEncrypted::reconnect;
 
 #include "helpers.h"
 
@@ -76,6 +78,8 @@ int main()
     unsigned long startTime = millis();
     while(true) {
 
+        mesh.update();
+
         if (encMesh.isAvailable()) {
             wdt_reset();
             ControllPacket received;
@@ -105,6 +109,7 @@ int main()
             //handleInnerTemperature(sensor, radio);
             handler.handleTimeouts();
             startTime = currentTime;
+            reconnect(mesh);
         }
 
         wdt_reset();
