@@ -1,5 +1,6 @@
-BOARD_TAG   = nano
-BOARD_SUB   = atmega328old
+BOARD_TAG   = uno
+#BOARD_TAG   = pro
+#BOARD_SUB   = 8MHzatmega328
 ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
 
 USER_LIB_PATH=$(realpath ../arduino-link)
@@ -10,6 +11,7 @@ include /usr/share/arduino/Arduino.mk
 
 # ENC_KEY must be 16 chars long and same accross master, slave, nodes
 # NODE_ID is unique integer 1-256 must be equal to a receiving pin
+# TEST_RECEIVE define receiving node id and enable testing mode 
 #
 CXXFLAGS_STD += -DNODE_ID=$(NODE_ID) -DSHARED_KEY=\"$(ENC_KEY)\"  -I $(realpath ../arduino-link)
 

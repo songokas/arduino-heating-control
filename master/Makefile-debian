@@ -11,6 +11,7 @@ include /usr/share/arduino/Arduino.mk
 CURRENT_TIME = $(shell date +%s)
 
 # ENC_KEY must be 16 chars long and same accross master, slave, nodes
+# OWN_TEMPERATURE_SENSOR define pin if master has a temperature sensor e.g. -DOWN_TEMPERATURE_SENSOR=34
 CXXFLAGS_STD += -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
 MONITOR_PARMS += -L
 

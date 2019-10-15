@@ -22,7 +22,6 @@
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
-//#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
 
@@ -35,7 +34,6 @@ using Heating::timer;
 using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
-//using RadioEncrypted::Entropy::AvrEntropyAdapter;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
 
@@ -53,6 +51,28 @@ void blinkLed(byte times)
         times--;
     }
 }
+
+#ifdef TEST_RECEIVE
+
+void testReceive(IEncryptedMesh & radio)
+{
+    if (radio.isAvailable()) {
+        Packet received;
+        RF24NetworkHeader header;
+        if (!radio.receive(&received, sizeof(received), 0, header)) {
+            Serial.println(F("Failed to receive packet on master"));
+            printPacket(received);
+            return;
+        } else {
+            Serial.print(F("Received: "));
+            printPacket(received);
+        }
+    }
+}
+
+unsigned long timeLastSent = 0;
+
+#endif
 
 
 void setExpected() {
@@ -74,12 +94,12 @@ int main()
 
     Acorn128 cipher;
     AnalogSignalEntropy entropyAdapter(A0, NODE_ID);
-    //EntropyClass entropy;
-    //entropy.initialize();
-    //AvrEntropyAdapter entropyAdapter(entropy);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
     EncryptedMesh encMesh (mesh, network, encryption);
     mesh.setNodeID(NODE_ID);
+
+    wdt_enable(WDTO_8S);
+
     // Connect to the mesh
     Serial << F("Connecting to the mesh...") << endl;
     if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
@@ -87,6 +107,7 @@ int main()
     } else {
         Serial << F("Connected.") << endl;
     }
+
     radio.setPALevel(RF24_PA_LOW);
 
     OneWire oneWire(Config::PIN_TEMPERATURE); 
@@ -102,12 +123,31 @@ int main()
     byte buttonPressed = 0;
     float expectedTemperature = 0;
 
-    wdt_enable(WDTO_8S);
 
     while(true) {
 
         mesh.update();
         wdt_reset();
+
+#ifdef TEST_RECEIVE
+
+        testReceive(encMesh);
+
+        if (millis() - timeLastSent > 3000) {
+            reconnect(mesh);
+            timeLastSent = millis();
+            packet.currentTemperature = sensor.read();
+            packet.expectedTemperature = expectedTemperature;
+
+            Serial.print(F("Sent: "));
+            printPacket(packet);
+            if (!encMesh.send(&packet, sizeof(packet), 0, TEST_RECEIVE)) {
+                Serial.println(F("Failed to send packet to master"));
+                wdt_reset();
+            }
+
+        }
+#else
 
         if (buttonPressed > 3) {
             if (expectedTemperature) {
@@ -132,7 +172,7 @@ int main()
         packet.expectedTemperature = expectedTemperature;
 
         printPacket(packet);
-        if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
+        if (!encMesh.send(&packet, sizeof(packet), 0, 4)) {
             Serial.println(F("Failed to send packet to master"));
             wdt_reset();
         }
@@ -145,13 +185,11 @@ int main()
         uint8_t timeToSleep = 1;
         uint32_t increaseTimer = timeToSleep * 8700;
 
-        //wdt_disable();
         while (timeToSleep > 0) {
             LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
             timeToSleep--;
         }
 
-        //wdt_enable(WDTO_8S);
         timer(increaseTimer);
 
         radio.powerUp();
@@ -169,6 +207,7 @@ int main()
                 waitLoop++;
             }
         }
+#endif
 
     }
     return 0;

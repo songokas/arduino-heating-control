@@ -103,7 +103,7 @@ int main()
     } else {
         Serial << F("Connected.") << endl;
     }
-    radio.setPALevel(RF24_PA_LOW);
+    radio.setPALevel(RF24_PA_HIGH);
 
     if (Ethernet.begin(Config::MASTER_MAC) == 0) {
         Serial.println(F("Failed to obtain address"));
@@ -139,10 +139,13 @@ int main()
     storage.loadConfiguration(config);
     AcctuatorProcessor processor(config);
 
+#ifdef OWN_TEMPERATURE_SENSOR
+
     OneWire oneWire(Config::PIN_TEMPERATURE); 
     DallasTemperature sensors(&oneWire);
     TemperatureSensor sensor(sensors);
 
+#endif
     // 1 minute
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
@@ -164,10 +167,11 @@ int main()
 
             wdt_reset();
 
+#ifdef OWN_TEMPERATURE_SENSOR
             //Serial.println(F("Read sensor "));
             //Serial.println(millis());
 
-            Packet packet { Config::ADDRESS_MASTER, sensor.read(), 0};
+            Packet packet { OWN_TEMPERATURE_SENSOR, sensor.read(), 0};
 
             wdt_reset();
 
@@ -176,6 +180,7 @@ int main()
 
 
             processor.handlePacket(packet);
+#endif
 
             //Serial.print(F("Handle states "));
             //Serial.println(millis());
