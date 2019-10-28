@@ -49,4 +49,17 @@ namespace Heating
         adjustedMillis += adjust;
         return millis() + adjustedMillis;
     }
+
+
+#if DEBUG
+#define PRINTS(s) Serial.print(F(s))
+#define PRINT(s,v) do { Serial.print(F(s)); Serial.print(v); } while(0);
+#define PRINTX(s,v) do { Serial.print(F(s)); Serial.print(F(“0x”)); Serial.print(v, HEX); } while(0);
+#else
+#define PRINTS(s)
+#define PRINT(s,v)
+#define PRINTX(s,v)
+#endif
+
+
 }

@@ -25,15 +25,17 @@ using RadioEncrypted::IEncryptedMesh;
 
 using Heating::AcctuatorProcessor;
 
+extern int freeRam ();
+
 AcctuatorProcessor::AcctuatorProcessor(const Config & c): config(c)
 {
 }
 
 void AcctuatorProcessor::applyStates(IEncryptedMesh & radio, const HeaterInfo & heaterInfo)
 {
-    byte zoneCount;
+    uint8_t zoneCount {0};
     if (heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
-        Serial.println("Not applying states since pump is still working");
+        Serial.println(F("Not applying states since pump is still working"));
         return;
     }
     for (auto & zoneInfo: zones) {
@@ -45,9 +47,9 @@ void AcctuatorProcessor::applyStates(IEncryptedMesh & radio, const HeaterInfo & 
             wdt_reset();
             ControllPacket controllPacket {zoneInfo.pin.id - 100, zoneInfo.getPwmState()};
             if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE)) {
-                Serial.print("Failed to send Id: ");
+                Serial.print(F("Failed to send Id: "));
                 Serial.print(controllPacket.id);
-                Serial.print("State: ");
+                Serial.print(F(" State: "));
                 Serial.println(controllPacket.state);
                 zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
             } else {
@@ -68,9 +70,9 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
     if (packet.currentTemperature > 50 || packet.currentTemperature < -40) {
         Serial.print(F("Error temperature for "));
         Serial.print(packet.id);
-        Serial.print(" temperature ");
+        Serial.print(F(" temperature "));
         Serial.print(packet.currentTemperature);
-        Serial.println(F("is not valid. Ignoring"));
+        Serial.println(F(" is not valid. Ignoring"));
         return;
     }
 
@@ -232,8 +234,12 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
 
 void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo) const
 {
+    //StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
     DynamicJsonBuffer jsonBuffer(Config::MAX_INFO_JSON_SIZE);
     JsonObject & root = jsonBuffer.createObject();
+    JsonObject & system = root.createNestedObject("system");
+    system["m"] = freeRam();
+
     JsonObject & heater = root.createNestedObject("heater");
     heater["on"] = heaterInfo.isOn();
     heater["iT"] = heaterInfo.getInitTime();

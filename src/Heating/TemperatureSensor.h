@@ -6,7 +6,7 @@ namespace Heating
     class TemperatureSensor
     {
         private:
-            bool started = false;
+            bool started {false};
             DallasTemperature & sensors;
         public:
             TemperatureSensor(DallasTemperature & sensors);

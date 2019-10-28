@@ -84,9 +84,9 @@ namespace Heating
             unsigned int heaterPumpStopTime {600};
             bool constantTemperatureEnabled {false};
             float constantTemperature {0};
-            float minTemperatureDiffForPwm = 0.5;
-            float temperatureDropWait = 0.7;
-            byte minPwmState = 30; //percent
+            float minTemperatureDiffForPwm {0.5};
+            float temperatureDropWait {0.7};
+            byte minPwmState {30}; //percent
             ZoneConfig zones[MAX_ZONES] {};
     };
 }

@@ -20,9 +20,10 @@ const char DEFAULT_JSON[] PROGMEM = "{\"acctuatorWarmupTime\":180,\"heaterPumpSt
 
 bool Storage::loadConfiguration(Config & config) const
 {
-    StaticJsonBuffer<Config::MAX_CONFIG_SIZE + 300> jsonBuffer;
-    //DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE);
-    char json [Config::MAX_CONFIG_SIZE + 1] {0};
+    //StaticJsonBuffer<Config::MAX_CONFIG_SIZE + 300> jsonBuffer;
+    DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE + 300);
+    //char json [Config::MAX_CONFIG_SIZE + 1] {0};
+    char * json = new char[Config::MAX_CONFIG_SIZE + 1] {0};
     if (EEPROM[0] == '{') {
         Serial.println(F("Reading from memory"));
         unsigned int i = 0;
@@ -51,6 +52,7 @@ bool Storage::loadConfiguration(Config & config) const
     if (!root.success()) {
         EEPROM.update(0, '0');
         Serial.println(F("Failed to parse config"));
+        delete json;
         return false;
     }
     Serial.print(F("Load config memory left: "));
@@ -108,19 +110,24 @@ bool Storage::loadConfiguration(Config & config) const
         config.zones[i] = {};
         i++;
     }
+    delete json;
     return true;
 }
 
-bool Storage::saveConfiguration(Config & config, String & json) const
+bool Storage::saveConfiguration(const char * json) const
 {
+    int lastIndex = strlen(json);
+    bool valid = strcmp(json, "0") == 0 || (json[0] == '{' && json[lastIndex - 1] == '}');
+    if (!valid) {
+        return false;
+    }
     Serial.print(F("Save config memory left: "));
     Serial.println(freeRam());
     int i = 0;
-    while(i < Config::MAX_CONFIG_SIZE && i < json.length()) {
-        EEPROM.update(i, (byte)json.charAt(i));
+    while(i < Config::MAX_CONFIG_SIZE && json[i] != '\0') {
+        EEPROM.update(i, (byte)json[i]);
         i++;
     }
-    json = "";
     EEPROM.update(i, '\0');
-    return loadConfiguration(config);
+    return i > 0;
 }

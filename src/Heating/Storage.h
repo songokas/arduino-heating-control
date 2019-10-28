@@ -7,7 +7,7 @@ namespace Heating
     {
         public:
             bool loadConfiguration(Config & config) const;
-            bool saveConfiguration(Config & config, String & json) const;
+            bool saveConfiguration(const char * json) const;
     };
 }
 

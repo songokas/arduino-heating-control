@@ -5,7 +5,6 @@
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
-#include <Entropy.h>
 #include <Streaming.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
@@ -19,7 +18,7 @@
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
-#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
+#include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
 
 using Heating::Config;
@@ -32,7 +31,7 @@ using Heating::TemperatureSensor;
 using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
-using RadioEncrypted::Entropy::AvrEntropyAdapter;
+using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
 
 #include "helpers.h"
@@ -47,9 +46,7 @@ int main()
     RF24Mesh mesh(radio, network);
 
     Acorn128 cipher;
-    EntropyClass entropy;
-    entropy.initialize();
-    AvrEntropyAdapter entropyAdapter(entropy);
+    AnalogSignalEntropy entropyAdapter(A0, Config::ADDRESS_SLAVE);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
     EncryptedMesh encMesh (mesh, network, encryption);
     mesh.setNodeID(Config::ADDRESS_SLAVE);
@@ -100,7 +97,7 @@ int main()
                 analogWrite(received.id, received.state);
                 handler.addTimeout(received.id);
             } else {
-                Serial.println("Ignoring since pin is not available");
+                Serial.println(F("Ignoring since pin is not available"));
             }
         }
         unsigned long currentTime = millis();
@@ -110,6 +107,7 @@ int main()
             handler.handleTimeouts();
             startTime = currentTime;
             reconnect(mesh);
+            Serial.println(F("Ping"));
         }
 
         wdt_reset();

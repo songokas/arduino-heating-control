@@ -70,8 +70,6 @@ void testReceive(IEncryptedMesh & radio)
     }
 }
 
-unsigned long timeLastSent = 0;
-
 #endif
 
 
@@ -126,6 +124,7 @@ int main()
     byte buttonPressed = 0;
     float expectedTemperature = 0;
 
+    unsigned long timeLastSent = 0;
 
     while(true) {
 
@@ -171,15 +170,31 @@ int main()
                 timer(0, true);
             }
         }
+
+        
+#ifdef KEEP_ALIVE
+        if (millis() - timeLastSent > 30000UL) {
+            reconnect(mesh);
+            timeLastSent = millis();
+            packet.currentTemperature = sensor.read();
+            packet.expectedTemperature = expectedTemperature;
+
+            Serial.print(F("Sent: "));
+            printPacket(packet);
+
+            wdt_reset();
+            if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
+                Serial.println(F("Failed to send packet to master"));
+            }
+        }
+#else
         packet.currentTemperature = sensor.read();
         packet.expectedTemperature = expectedTemperature;
 
         printPacket(packet);
-        if (!encMesh.send(&packet, sizeof(packet), 0, 4)) {
+        if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
             Serial.println(F("Failed to send packet to master"));
-            wdt_reset();
         }
-
         wdt_reset();
 
         Serial.flush();
@@ -198,7 +213,7 @@ int main()
         radio.powerUp();
 
         reconnect(mesh);
-
+#endif
         if (notify > 0) {
             buttonPressed++;
             notify = 0;

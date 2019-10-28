@@ -8,7 +8,7 @@
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
-#include <Entropy.h>
+//#include <Entropy.h>
 #include <Streaming.h>
 #include <ArduinoJson.h>
 #include <Ethernet.h>
@@ -39,7 +39,8 @@
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
-#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
+#include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
+//#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
 #include "RadioEncrypted/Helpers.h"
 
 using Heating::Packet;
@@ -60,7 +61,8 @@ using Heating::AcctuatorProcessor;
 using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
-using RadioEncrypted::Entropy::AvrEntropyAdapter;
+using RadioEncrypted::Entropy::AnalogSignalEntropy;
+//using RadioEncrypted::Entropy::AvrEntropyAdapter;
 using RadioEncrypted::reconnect;
 
 // defines pin id for master
@@ -90,12 +92,13 @@ int main()
     RF24Mesh mesh(radio, network);
 
     Acorn128 cipher;
-    EntropyClass entropy;
-    entropy.initialize();
-    AvrEntropyAdapter entropyAdapter(entropy);
+    AnalogSignalEntropy entropyAdapter(A0, Config::ADDRESS_MASTER);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
     EncryptedMesh encMesh (mesh, network, encryption);
     mesh.setNodeID(Config::ADDRESS_MASTER);
+
+    wdt_enable(WDTO_8S);
+
     // Connect to the mesh
     Serial << F("Connecting to the mesh...") << endl;
     if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
@@ -104,6 +107,8 @@ int main()
         Serial << F("Connected.") << endl;
     }
     radio.setPALevel(RF24_PA_HIGH);
+
+    wdt_reset();
 
     if (Ethernet.begin(Config::MASTER_MAC) == 0) {
         Serial.println(F("Failed to obtain address"));
@@ -117,13 +122,13 @@ int main()
     EthernetServer server(80);
     server.begin();
 
-    wdt_enable(WDTO_8S);
+    wdt_reset();
 
     setSyncProvider(getTime);
     setSyncInterval(TIME_SYNC_INTERVAL);
 
     if (timeStatus() == timeNotSet) {
-        Serial.print(F("Faile to set time using:"));
+        Serial.print(F("Failed to set time using:"));
         Serial.println(CURRENT_TIME);
         setTime(CURRENT_TIME);
     }
@@ -133,7 +138,7 @@ int main()
     printTime(initTime);
     Serial.println();
 
-    Storage storage;
+    Storage storage {};
     Config config {};
     HeaterInfo heaterInfo {initTime};
     storage.loadConfiguration(config);
@@ -159,7 +164,10 @@ int main()
 
         handleRadio(encMesh, processor);
         EthernetClient client = server.available();
-        handleRequest(client, storage, processor, config, heaterInfo);
+        bool configUpdated = handleRequest(client, storage, processor, heaterInfo);
+        if (configUpdated) {
+            storage.loadConfiguration(config);
+        }
 
         unsigned long currentTime = millis();
 
@@ -209,6 +217,9 @@ int main()
             if (Config::ADDRESS_MASTER != 0) {
                 reconnect(mesh);
             }
+            Serial.print(F("Memory left:"));
+            Serial.println(freeRam());
+
         }
 
         wdt_reset();

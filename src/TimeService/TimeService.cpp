@@ -43,7 +43,7 @@ namespace TimeService
     {
         static int udpInited = udp.begin(123); // open socket on arbitrary port
         if (!udpInited) {
-            Serial.print("failed to initialize");
+            Serial.print(F("failed to initialize"));
         }
 
         wdt_reset();
@@ -63,15 +63,15 @@ namespace TimeService
 
         // Send an NTP request
         if (!udp.beginPacket(timeServer, 123)) {
-            Serial.print("failed to begin");
+            Serial.print(F("failed to begin"));
                 return 0;  
         }
         if (udp.write((byte *)&ntpFirstFourBytes, 48) != 48) {
-                Serial.print("failed to write");
+                Serial.print(F("failed to write"));
                 return 0;  
         }
         if (!udp.endPacket()) {
-                Serial.print("failed to end");
+                Serial.print(F("failed to end"));
             return 0;  
             // sending request failed
         }
@@ -89,7 +89,7 @@ namespace TimeService
             delay(pollIntv);
         }
         if (pktLen != 48) {
-            Serial.println("no correct packet received");
+            Serial.println(F("no correct packet received"));
             Serial.println(pktLen);
             return 0;       // no correct packet received
         }
