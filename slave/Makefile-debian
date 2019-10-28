@@ -8,6 +8,6 @@ ARDUINO_LIBS = Acorn128 AuthenticatedCipher Cipher Crypto CryptoLW DallasTempera
 
 include /usr/share/arduino/Arduino.mk
 
-# ENC_KEY must be 16 chars long and same accross master, slave, nodes
+# ENC_KEY must be 16 chars long and same across master, slave, nodes
 #
 CXXFLAGS_STD += -DSHARED_KEY=\"$(ENC_KEY)\"  -I $(realpath ../arduino-link)

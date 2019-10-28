@@ -83,8 +83,8 @@ int main()
 {
     init();
 
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW);
+//    pinMode(LED_BUILTIN, OUTPUT);
+//    digitalWrite(LED_BUILTIN, LOW);
 
     Serial.begin(Config::SERIAL_RATE);
     pinMode(Config::PIN_LED, OUTPUT);
