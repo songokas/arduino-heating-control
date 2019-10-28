@@ -6,3 +6,5 @@ sender/Makefile
 sender/build-*
 tests/build
 tests/test
+.idea
+cmake-build*

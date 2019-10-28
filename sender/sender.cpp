@@ -83,6 +83,9 @@ int main()
 {
     init();
 
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+
     Serial.begin(Config::SERIAL_RATE);
     pinMode(Config::PIN_LED, OUTPUT);
     pinMode(Config::PIN_BUTTON, INPUT_PULLUP);
@@ -108,7 +111,7 @@ int main()
         Serial << F("Connected.") << endl;
     }
 
-    radio.setPALevel(RF24_PA_LOW);
+    radio.setPALevel(RF24_PA_HIGH);
 
     OneWire oneWire(Config::PIN_TEMPERATURE); 
     DallasTemperature sensors(&oneWire);
@@ -182,7 +185,7 @@ int main()
         Serial.flush();
         radio.powerDown();
 
-        uint8_t timeToSleep = 1;
+        uint8_t timeToSleep = 8;
         uint32_t increaseTimer = timeToSleep * 8700;
 
         while (timeToSleep > 0) {
