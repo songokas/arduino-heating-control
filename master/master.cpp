@@ -72,6 +72,8 @@ using RadioEncrypted::reconnect;
 
 extern int freeRam ();
 
+void(* resetFunc) (void) = 0;
+
 #include "html.h"
 #include "helpers.h"
 
@@ -154,6 +156,7 @@ int main()
     // 1 minute
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
+    uint8_t networkFailures = 0;
 
     while(true) {
 
@@ -164,7 +167,7 @@ int main()
 
         handleRadio(encMesh, processor);
         EthernetClient client = server.available();
-        bool configUpdated = handleRequest(client, storage, processor, heaterInfo);
+        bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
         if (configUpdated) {
             storage.loadConfiguration(config);
         }
@@ -215,7 +218,15 @@ int main()
             startTime = currentTime;
 
             if (Config::ADDRESS_MASTER != 0) {
-                reconnect(mesh);
+                if (!reconnect(mesh)) {
+                    networkFailures++;
+                } else {
+                    networkFailures = 0;
+                }
+            }
+
+            if (networkFailures > 20) {
+                resetFunc();
             }
             Serial.print(F("Memory left:"));
             Serial.println(freeRam());

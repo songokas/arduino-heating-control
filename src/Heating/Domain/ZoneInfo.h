@@ -10,7 +10,7 @@ namespace Heating
             public:
 
                 Pin pin {};
-                bool reachedDesired {};
+                bool reachedDesired {true};
                 float senderExpectedTemperature {};
                 float expectedTemperature {};
                 float temps[Config::MAX_ZONE_TEMPS] {};

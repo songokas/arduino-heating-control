@@ -46,7 +46,7 @@ void AcctuatorProcessor::applyStates(IEncryptedMesh & radio, const HeaterInfo & 
         if (zoneInfo.pin.id > 100) {
             wdt_reset();
             ControllPacket controllPacket {zoneInfo.pin.id - 100, zoneInfo.getPwmState()};
-            if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE)) {
+            if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
                 Serial.print(F("Failed to send Id: "));
                 Serial.print(controllPacket.id);
                 Serial.print(F(" State: "));
@@ -232,13 +232,14 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
     root.printTo(client);
 }
 
-void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo) const
+void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo, uint8_t networkFailures) const
 {
     //StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
     DynamicJsonBuffer jsonBuffer(Config::MAX_INFO_JSON_SIZE);
     JsonObject & root = jsonBuffer.createObject();
     JsonObject & system = root.createNestedObject("system");
     system["m"] = freeRam();
+    system["f"] = networkFailures;
 
     JsonObject & heater = root.createNestedObject("heater");
     heater["on"] = heaterInfo.isOn();

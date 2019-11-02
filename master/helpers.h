@@ -1,4 +1,4 @@
-void printWebsite(EthernetClient & client, const AcctuatorProcessor & manager, const HeaterInfo & heaterInfo)
+void printWebsite(EthernetClient & client, const AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures)
 {
     unsigned int buffIndex = 0;
     char website[Config::MAX_REQUEST_PRINT_BUFFER] {};
@@ -11,7 +11,7 @@ void printWebsite(EthernetClient & client, const AcctuatorProcessor & manager, c
             buffIndex = 0;
         } else if (c == '`') {
             client.write((uint8_t*)website, buffIndex);
-            manager.printInfo(client, heaterInfo);
+            manager.printInfo(client, heaterInfo, networkFailures);
             buffIndex = 0;
         } else {
             website[buffIndex] = c;
@@ -25,13 +25,13 @@ void printWebsite(EthernetClient & client, const AcctuatorProcessor & manager, c
     client.write((uint8_t*)website, buffIndex);
 }
 
-void sendHtml(EthernetClient & client, const AcctuatorProcessor & manager, const HeaterInfo & heaterInfo)
+void sendHtml(EthernetClient & client, const AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures)
 {
     client.println(F("HTTP/1.1 200 OK"));
     client.println(F("Content-Type: text/html"));
     client.println(F("Connection: close"));  // the connection will be closed after completion of the response
     client.println();
-    printWebsite(client, manager, heaterInfo);
+    printWebsite(client, manager, heaterInfo, networkFailures);
 }
 
 void sendNotFound(EthernetClient & client)
@@ -61,7 +61,7 @@ void sendJson(EthernetClient & client, bool ok)
     }
 }
 
-bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo)
+bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures)
 {
 
     bool configUpdated = false;
@@ -89,7 +89,7 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
                 sendJson(client, configUpdated);
             } else {
                 Serial.println(F("Send html"));
-                sendHtml(client, manager, heaterInfo);
+                sendHtml(client, manager, heaterInfo, networkFailures);
             }
             delete requestString;
             delay(10);

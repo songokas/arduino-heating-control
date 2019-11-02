@@ -28,7 +28,7 @@ namespace Heating
             bool isAnyWarmEnough() const;
 
             void printConfig(EthernetClient & client) const;
-            void printInfo(EthernetClient & client, const HeaterInfo & heaterInfo) const;
+            void printInfo(EthernetClient & client, const HeaterInfo & heaterInfo, uint8_t networkFailures) const;
 
             const ZoneConfig * getZoneConfigById(byte id) const;
             ZoneInfo & getAvailableZoneInfoById(byte id);

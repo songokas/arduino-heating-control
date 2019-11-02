@@ -36,6 +36,8 @@ using RadioEncrypted::reconnect;
 
 #include "helpers.h"
 
+void(* resetFunc) (void) = 0;
+
 int main()
 {
     init();
@@ -73,6 +75,7 @@ int main()
     // 1 minute
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
+    uint8_t networkFailures = 10;
     while(true) {
 
         mesh.update();
@@ -106,8 +109,16 @@ int main()
             //handleInnerTemperature(sensor, radio);
             handler.handleTimeouts();
             startTime = currentTime;
-            reconnect(mesh);
+            if (!reconnect(mesh)) {
+                networkFailures++;
+            } else {
+                networkFailures = 0;
+            }
             Serial.println(F("Ping"));
+        }
+
+        if (networkFailures > 10) {
+           resetFunc(); 
         }
 
         wdt_reset();
