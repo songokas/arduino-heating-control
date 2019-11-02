@@ -52,6 +52,8 @@ void blinkLed(byte times)
     }
 }
 
+void(* resetFunc) (void) = 0;
+
 #ifdef TEST_RECEIVE
 
 void testReceive(IEncryptedMesh & radio)
@@ -125,6 +127,7 @@ int main()
     float expectedTemperature = 0;
 
     unsigned long timeLastSent = 0;
+    uint8_t failures = 0;
 
     while(true) {
 
@@ -185,6 +188,9 @@ int main()
             wdt_reset();
             if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
                 Serial.println(F("Failed to send packet to master"));
+                failures++;
+            } else {
+                failures = 0;
             }
         }
 #else
@@ -194,6 +200,9 @@ int main()
         printPacket(packet);
         if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
             Serial.println(F("Failed to send packet to master"));
+            failures++;
+        } else {
+            failures = 0;
         }
         wdt_reset();
 
@@ -214,6 +223,10 @@ int main()
 
         reconnect(mesh);
 #endif
+        // @TODO bug with failing to connect  
+        if (failures > 10) {
+            resetFunc();
+        }
         if (notify > 0) {
             buttonPressed++;
             notify = 0;
