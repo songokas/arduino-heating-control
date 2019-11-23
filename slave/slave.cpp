@@ -76,6 +76,8 @@ int main()
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
     uint8_t networkFailures = 10;
+    // for some reason d10 on by default
+    digitalWrite(10, LOW);
     while(true) {
 
         mesh.update();
@@ -84,7 +86,7 @@ int main()
             wdt_reset();
             ControllPacket received;
             RF24NetworkHeader header;
-            if (!encMesh.receive(&received, sizeof(received), 0, header)) {
+            if (!encMesh.receive(&received, sizeof(received), 0, header, Config::ADDRESS_MASTER)) {
                 Serial.println(F("Failed to receive for slave"));
                 Serial.println(received.id);
                 continue;

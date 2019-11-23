@@ -8,3 +8,4 @@ tests/build
 tests/test
 .idea
 cmake-build*
+.vscode

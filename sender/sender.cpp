@@ -176,7 +176,7 @@ int main()
 
         
 #ifdef KEEP_ALIVE
-        if (millis() - timeLastSent > 30000UL) {
+        if (millis() - timeLastSent > 60000UL) {
             reconnect(mesh);
             timeLastSent = millis();
             packet.currentTemperature = sensor.read();

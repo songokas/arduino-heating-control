@@ -6,13 +6,15 @@ namespace RadioEncrypted { class IEncryptedMesh; }
 
 using RadioEncrypted::IEncryptedMesh;
 
+typedef ZoneInfo States[Config::MAX_ZONES];
+
 namespace Heating
 {
     class AcctuatorProcessor
     {
         private:
             const Config & config;
-            ZoneInfo zones[Config::MAX_ZONES] {};
+            States zones {};
             Error errors[Config::MAX_GENERAL_ERRORS] {};
 
         public:
@@ -22,7 +24,9 @@ namespace Heating
 
             void handlePacket(const Packet & packet);
 
-            void applyStates(IEncryptedMesh & radio, const HeaterInfo & heaterInfo);
+            void applyState(ZoneInfo & state, IEncryptedMesh & radio, const HeaterInfo & heaterInfo);
+
+            States & getStates();
 
             bool isAnyEnabled() const;
             bool isAnyWarmEnough() const;

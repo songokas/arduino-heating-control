@@ -210,7 +210,27 @@ int main()
             //Serial.print(F("Apply states heater "));
             //Serial.println(millis());
 
-            processor.applyStates(encMesh, heaterInfo);
+            if (!heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
+                for (auto &state: processor.getStates()) {
+                    wdt_reset();
+                    processor.applyState(state, encMesh, heaterInfo);
+                    wdt_reset();
+
+                    mesh.update();
+                    if (Config::ADDRESS_MASTER == 0) {
+                        mesh.DHCP();
+                    }
+
+                    handleRadio(encMesh, processor);
+                    EthernetClient client = server.available();
+                    bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
+                    if (configUpdated) {
+                        storage.loadConfiguration(config);
+                    }
+                }
+            }
+
+//            processor.applyStates(encMesh, heaterInfo);
 
             //Serial.print(F("All sessions "));
             //Serial.println(millis());
