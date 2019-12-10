@@ -8,29 +8,27 @@
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
-//#include <Entropy.h>
 #include <Streaming.h>
 #include <ArduinoJson.h>
 #include <Ethernet.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
 #include <Time.h>
+#include <PubSubClient.h>
+#include <NTPClient.h>
 
 // required by arduino-mk to include it when compiling storage
 #include <Wire.h>
 #include <AuthenticatedCipher.h>
 #include <Cipher.h>
 #include <SPI.h>
-
 #include <EEPROM.h>
 #include <Timezone.h>
-
 #include "Heating/Common.h"
 #include "Heating/Config.h"
 // arduino-mk
 
 #include "Heating/Storage.h"
-#include "TimeService/TimeService.h"
 #include "Heating/TemperatureSensor.h"
 #include "Heating/Domain/HeaterInfo.h"
 #include "Heating/Domain/ZoneInfo.h"
@@ -40,7 +38,6 @@
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedMesh.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
-//#include "RadioEncrypted/Entropy/AvrEntropyAdapter.h"
 #include "RadioEncrypted/Helpers.h"
 
 using Heating::Packet;
@@ -49,7 +46,6 @@ using Heating::printPacket;
 using Heating::isPinAvailable;
 using Heating::Config;
 using Heating::Storage;
-using TimeService::getTime;
 using Heating::TemperatureSensor;
 using Heating::Domain::HeaterInfo;
 using Heating::Domain::ZoneInfo;
@@ -62,20 +58,16 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedMesh;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
-//using RadioEncrypted::Entropy::AvrEntropyAdapter;
 using RadioEncrypted::reconnect;
 
-// defines pin id for master
-//#define ID 34
-//#define CURRENT_TIME 1520772798
-#define TIME_SYNC_INTERVAL 3600
+#include "html.h"
+#include "helpers.h"
 
 extern int freeRam ();
 
 void(* resetFunc) (void) = 0;
 
-#include "html.h"
-#include "helpers.h"
+const char CHANNEL_KEEP_ALIVE[] {"heating/master/keep-alive"};
 
 int main()
 {
@@ -126,14 +118,12 @@ int main()
 
     wdt_reset();
 
-    setSyncProvider(getTime);
-    setSyncInterval(TIME_SYNC_INTERVAL);
+    EthernetUDP udpConnection;
+    NTPClient timeClient(udpConnection);
 
-    if (timeStatus() == timeNotSet) {
-        Serial.print(F("Failed to set time using:"));
-        Serial.println(CURRENT_TIME);
-        setTime(CURRENT_TIME);
-    }
+    timeClient.begin();
+    timeClient.update();
+    syncTime(timeClient);
 
     time_t initTime = now();
     Serial.print(F("current time: "));
@@ -153,13 +143,21 @@ int main()
     TemperatureSensor sensor(sensors);
 
 #endif
-    // 1 minute
-    unsigned long TIME_PERIOD = 60000UL;
-    unsigned long startTime = millis();
+
+    EthernetClient net;
+    PubSubClient mqttClient(net);
+    reconnectToMqtt(mqttClient);
+
+    unsigned long handleTime = 0;
+    unsigned long timeUpdate = 0;
     uint8_t networkFailures = 0;
+    uint8_t failureToApplyStates = 0;
+    uint8_t publishFailed = 0;
+    uint8_t reconnectMqttFailed = 0;
 
     while(true) {
 
+        mqttClient.loop();
         mesh.update();
         if (Config::ADDRESS_MASTER == 0) {
             mesh.DHCP();
@@ -172,48 +170,33 @@ int main()
             storage.loadConfiguration(config);
         }
 
-        unsigned long currentTime = millis();
-
-        if (currentTime - startTime >= TIME_PERIOD) {
+        if (millis() - handleTime >= 60000UL) {
 
             wdt_reset();
 
 #ifdef OWN_TEMPERATURE_SENSOR
-            //Serial.println(F("Read sensor "));
-            //Serial.println(millis());
-
             Packet packet { OWN_TEMPERATURE_SENSOR, sensor.read(), 0};
-
             wdt_reset();
-
-            //Serial.print(F("Handle packet "));
-            //Serial.println(millis());
-
-
             processor.handlePacket(packet);
 #endif
-
-            //Serial.print(F("Handle states "));
-            //Serial.println(millis());
 
             wdt_reset();
 
             processor.handleStates();
 
-            //Serial.print(F("Handle heater "));
-            //Serial.println(millis());
-
             handleHeater(processor, heaterInfo);
 
             wdt_reset();
 
-            //Serial.print(F("Apply states heater "));
-            //Serial.println(millis());
-
             if (!heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
                 for (auto &state: processor.getStates()) {
+
                     wdt_reset();
-                    processor.applyState(state, encMesh, heaterInfo);
+                    if (!processor.applyState(state, encMesh, heaterInfo)) {
+                        failureToApplyStates++;
+                    } else {
+                        failureToApplyStates = 0;
+                    }
                     wdt_reset();
 
                     mesh.update();
@@ -230,13 +213,6 @@ int main()
                 }
             }
 
-//            processor.applyStates(encMesh, heaterInfo);
-
-            //Serial.print(F("All sessions "));
-            //Serial.println(millis());
-
-            startTime = currentTime;
-
             if (Config::ADDRESS_MASTER != 0) {
                 if (!reconnect(mesh)) {
                     networkFailures++;
@@ -245,12 +221,34 @@ int main()
                 }
             }
 
-            if (networkFailures > 20) {
-                resetFunc();
+            if (reconnectToMqtt(mqttClient) != ConnectionStatus::Connected) {
+                reconnectMqttFailed++;
+            } else {
+                reconnectMqttFailed = 0;
             }
+
+            char liveMsg[16] {0};
+            sprintf(liveMsg, "%lud", millis());
+		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
+                Serial << F("Failed to send keep alive") << endl;
+                publishFailed++;
+		    } else {
+                publishFailed = 0;
+            }
+
             Serial.print(F("Memory left:"));
             Serial.println(freeRam());
+            handleTime = millis();
 
+            if (networkFailures > 20 || failureToApplyStates > 100 || reconnectMqttFailed > 20 || publishFailed > 20 || radio.failureDetected) {
+                resetFunc();
+            }
+        }
+
+        if (millis() - timeUpdate >= 600000UL) {
+            timeClient.update();
+            syncTime(timeClient);
+            timeUpdate = millis();
         }
 
         wdt_reset();

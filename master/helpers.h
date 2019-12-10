@@ -136,6 +136,20 @@ void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)
     }
 }
 
+bool syncTime(NTPClient & client)
+{
+    unsigned long utc = client.getEpochTime();
+    if (utc == 0) {
+        return false;
+    }
+    TimeChangeRule eestSummer = {"EESTS", Last, Sun, Mar, 3, 180};  //UTC + 3 hours
+    TimeChangeRule eestWinter = {"EESTW", Last, Sun, Oct, 4, 120};   //UTC + 2 hours
+    Timezone eestZone(eestSummer, eestWinter);
+    time_t localTime = eestZone.toLocal(utc);
+    setTime(localTime);
+    return true;
+}
+
 void maintainDhcp() {
 
   switch (Ethernet.maintain())
@@ -167,4 +181,28 @@ void maintainDhcp() {
       break;
 
   }
+}
+
+
+enum class ConnectionStatus
+{
+    Connected,
+    FailedToConnect
+};
+
+ConnectionStatus reconnectToMqtt(PubSubClient & client) {
+    // Loop until we're reconnected
+    if (!client.connected()) {
+        DPRINTLN(F("Attempting MQTT connection..."));
+        // Attempt to connect
+        if (client.connect("ESP8266Client")) {
+            DPRINTLN(F("Mqtt connected"));
+            return ConnectionStatus::Connected;
+
+        } else {
+            Serial << F("Mqtt connection failed, rc=") << client.state() << F(" try again in 5 seconds") << endl;
+            return ConnectionStatus::FailedToConnect;
+        }
+    }
+    return ConnectionStatus::Connected;
 }

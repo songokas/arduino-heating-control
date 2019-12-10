@@ -9,3 +9,4 @@ tests/test
 .idea
 cmake-build*
 .vscode
+libraries/**/.git/

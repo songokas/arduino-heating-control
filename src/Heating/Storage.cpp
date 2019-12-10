@@ -20,9 +20,7 @@ const char DEFAULT_JSON[] PROGMEM = "{\"acctuatorWarmupTime\":180,\"heaterPumpSt
 
 bool Storage::loadConfiguration(Config & config) const
 {
-    //StaticJsonBuffer<Config::MAX_CONFIG_SIZE + 300> jsonBuffer;
     DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE + 300);
-    //char json [Config::MAX_CONFIG_SIZE + 1] {0};
     char * json = new char[Config::MAX_CONFIG_SIZE + 1] {0};
     if (EEPROM[0] == '{') {
         Serial.println(F("Reading from memory"));

@@ -36,7 +36,7 @@ States & AcctuatorProcessor::getStates()
     return zones;
 }
 
-void AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio, const HeaterInfo & heaterInfo)
+bool AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio, const HeaterInfo & heaterInfo)
 {
     if (zoneInfo.pin.id > 0) {
         zoneInfo.print();
@@ -45,11 +45,14 @@ void AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio,
         wdt_reset();
         ControllPacket controllPacket {zoneInfo.pin.id - 100, zoneInfo.getPwmState()};
         if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
+
             Serial.print(F("Failed to send Id: "));
             Serial.print(controllPacket.id);
             Serial.print(F(" State: "));
             Serial.println(controllPacket.state);
+
             zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
+            return false;
         } else {
             zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
         }
@@ -58,6 +61,7 @@ void AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio,
         analogWrite(zoneInfo.pin.id, zoneInfo.getPwmState());
     }
     zoneInfo.recordState(zoneInfo.getState());
+    return true;
 }
 
 void AcctuatorProcessor::handlePacket(const Packet & packet)
