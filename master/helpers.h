@@ -150,13 +150,14 @@ bool syncTime(NTPClient & client)
     return true;
 }
 
-void maintainDhcp() {
+bool maintainDhcp() {
 
   switch (Ethernet.maintain())
   {
     case 1:
       //renewed fail
       Serial.println(F("Error: renewed fail"));
+      return false;
       break;
 
     case 2:
@@ -168,6 +169,7 @@ void maintainDhcp() {
     case 3:
       //rebind fail
       Serial.println(F("Error: rebind fail"));
+      return false;
       break;
 
     case 4:
@@ -181,6 +183,7 @@ void maintainDhcp() {
       break;
 
   }
+  return true;
 }
 
 

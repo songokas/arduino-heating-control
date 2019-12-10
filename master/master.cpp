@@ -154,6 +154,7 @@ int main()
     uint8_t failureToApplyStates = 0;
     uint8_t publishFailed = 0;
     uint8_t reconnectMqttFailed = 0;
+    uint8_t dhcpFailures = 0;
 
     while(true) {
 
@@ -199,6 +200,7 @@ int main()
                     }
                     wdt_reset();
 
+                    mqttClient.loop();
                     mesh.update();
                     if (Config::ADDRESS_MASTER == 0) {
                         mesh.DHCP();
@@ -240,7 +242,13 @@ int main()
             Serial.println(freeRam());
             handleTime = millis();
 
-            if (networkFailures > 20 || failureToApplyStates > 100 || reconnectMqttFailed > 20 || publishFailed > 20 || radio.failureDetected) {
+            if (!maintainDhcp()) {
+                dhcpFailures++;
+            } else {
+                dhcpFailures = 0;
+            }
+
+            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20 || radio.failureDetected) {
                 resetFunc();
             }
         }
@@ -249,6 +257,7 @@ int main()
             timeClient.update();
             syncTime(timeClient);
             timeUpdate = millis();
+
         }
 
         wdt_reset();
