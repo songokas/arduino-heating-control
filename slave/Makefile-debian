@@ -10,4 +10,4 @@ include /usr/share/arduino/Arduino.mk
 
 # ENC_KEY must be 16 chars long and same across master, slave, nodes
 #
-CXXFLAGS_STD += -DSHARED_KEY=\"$(ENC_KEY)\"  -I $(realpath ../arduino-link)
+CXXFLAGS_STD += -DFAILURE_HANDLING=1 -DSHARED_KEY=\"$(ENC_KEY)\"  -I $(realpath ../arduino-link)

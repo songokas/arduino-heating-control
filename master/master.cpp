@@ -100,7 +100,7 @@ int main()
     } else {
         Serial << F("Connected.") << endl;
     }
-    radio.setPALevel(RF24_PA_HIGH);
+    radio.setPALevel(RF24_PA_MAX);
 
     wdt_reset();
 
@@ -145,7 +145,10 @@ int main()
 #endif
 
     EthernetClient net;
+
     PubSubClient mqttClient(net);
+    mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
+
     reconnectToMqtt(mqttClient);
 
     unsigned long handleTime = 0;
@@ -248,7 +251,11 @@ int main()
                 dhcpFailures = 0;
             }
 
-            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20 || radio.failureDetected) {
+
+            Serial << F("Network ") << networkFailures << F(" Failure to send ") << failureToApplyStates << F(" Dhcp ") << dhcpFailures << F(" Radio ") << radio.failureDetected << endl;
+            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20/* || radio.failureDetected*/) {
+                Serial << F("Resetting") << endl;
+                Serial.flush();
                 resetFunc();
             }
         }

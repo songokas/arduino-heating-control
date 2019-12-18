@@ -68,7 +68,7 @@ int main()
     } else {
         Serial << F("Connected.") << endl;
     }
-    radio.setPALevel(RF24_PA_HIGH);
+    radio.setPALevel(RF24_PA_MAX);
 
     wdt_reset();
 
