@@ -233,12 +233,13 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
 
 void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo, uint8_t networkFailures) const
 {
-    //StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
-    DynamicJsonBuffer jsonBuffer(Config::MAX_INFO_JSON_SIZE);
+    StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
+    //DynamicJsonBuffer jsonBuffer(3000);
     JsonObject & root = jsonBuffer.createObject();
     JsonObject & system = root.createNestedObject("system");
     system["m"] = freeRam();
     system["f"] = networkFailures;
+
 
     JsonObject & heater = root.createNestedObject("heater");
     heater["on"] = heaterInfo.isOn();
@@ -283,5 +284,6 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
         }
     }
     root.printTo(client);
+    //root.printTo(Serial);
 
 }

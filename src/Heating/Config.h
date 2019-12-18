@@ -58,7 +58,7 @@ namespace Heating
             static const unsigned int MAX_REQUEST_PRINT_BUFFER = 512;
 
             static const unsigned int MAX_CONFIG_SIZE = 1300;
-            static const unsigned int MAX_INFO_JSON_SIZE = 2200;
+            static const unsigned int MAX_INFO_JSON_SIZE = 2000;
 
             static const byte MAX_HEATER_HISTORY = 3;
             static const byte MAX_ZONE_ERRORS = 3;

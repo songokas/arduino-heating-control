@@ -233,7 +233,7 @@ int main()
             }
 
             char liveMsg[16] {0};
-            sprintf(liveMsg, "%lud", millis());
+            sprintf(liveMsg, "%lu", millis());
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
                 publishFailed++;
