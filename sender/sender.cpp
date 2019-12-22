@@ -94,7 +94,7 @@ int main()
     Acorn128 cipher;
     AnalogSignalEntropy entropyAdapter(A0, NODE_ID);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
-    EncryptedRadio encMesh (Config::ADDRESS_MASTER, radio, encryption);
+    EncryptedRadio encMesh (NODE_ID, radio, encryption);
 
     wdt_enable(WDTO_8S);
 
