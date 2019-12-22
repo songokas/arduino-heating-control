@@ -220,16 +220,15 @@ int main()
                 }
             }
 
-            if (reconnectToMqtt(mqttClient) != ConnectionStatus::Connected) {
-                reconnectMqttFailed++;
-            } else {
-                reconnectMqttFailed = 0;
-            }
-
             char liveMsg[16] {0};
             sprintf(liveMsg, "%lu", millis());
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
+                if (reconnectToMqtt(mqttClient) != ConnectionStatus::Connected) {
+                    reconnectMqttFailed++;
+                } else {
+                    reconnectMqttFailed = 0;
+                }
                 publishFailed++;
 		    } else {
                 publishFailed = 0;
