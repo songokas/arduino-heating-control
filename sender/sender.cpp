@@ -198,7 +198,8 @@ int main()
             }
         }
 #else
-        packet.currentTemperature = sensor.read();
+        float temp = sensor.read();
+        packet.currentTemperature = (uint16_t)(temp > 0 ? 100 * temp : 0);
         packet.expectedTemperature = expectedTemperature;
 
         printPacket(packet);

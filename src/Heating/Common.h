@@ -9,22 +9,24 @@ namespace Heating
         RECEIVE_FAILED,
         RECEIVE_WRONG_ID_COUNT
     };
-
+#pragma pack (1)
     struct ControllPacket {
-        byte id;
-        byte state;
-        int info;
+        uint8_t id;
+        uint8_t state;
     };
+#pragma pack (0)
 
+#pragma pack (1)
     struct Packet {
-        byte id;
-        float currentTemperature;
-        float expectedTemperature;
+        uint8_t id;
+        uint16_t currentTemperature;
+        uint16_t expectedTemperature;
     };
-    
+#pragma pack (0)
+
     struct Pin {
-        byte id;
-        byte state;
+        uint8_t id;
+        uint8_t state;
     };
 
     struct OnOffTime {
