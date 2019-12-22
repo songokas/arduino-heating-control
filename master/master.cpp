@@ -94,12 +94,12 @@ int main()
         if (!radio.begin()) {
             Serial << F("Failed to initialize radio") << endl;
         } else if (radio.isChipConnected()) {
-            Serial << F("Connected.") << endl;
+            Serial << F("Initialized.") << endl;
             break;
         }
     }
-    if (retryRadio == 0) {
-        resetFunc();
+    if (!radio.isChipConnected()) {
+        return 1;
     }
 
     const uint8_t address[] = {Config::ADDRESS_MASTER, 0, 0, 0, 0, 0};

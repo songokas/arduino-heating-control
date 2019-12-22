@@ -63,10 +63,17 @@ int main()
     wdt_enable(WDTO_8S);
 
     Serial << F("Starting radio...") << endl;
-    if (!radio.begin()) {
-        Serial << F("Failed to initialize radio") << endl;
-    } else {
-        Serial << F("Connected.") << endl;
+    uint8_t retryRadio = 10;
+    while (retryRadio-- > 0) {
+        if (!radio.begin()) {
+            Serial << F("Failed to initialize radio") << endl;
+        } else if (radio.isChipConnected()) {
+            Serial << F("Initialized.") << endl;
+            break;
+        }
+    }
+    if (!radio.isChipConnected()) {
+        return 1;
     }
     const uint8_t address[] = {Config::ADDRESS_SLAVE, 0, 0, 0, 0, 0};
     radio.openReadingPipe(1,address);
