@@ -3,8 +3,6 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-#include <RF24Network.h>
-#include <RF24Mesh.h>
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
@@ -36,7 +34,7 @@
 #include "CommonModule/MacroHelper.h"
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
-#include "RadioEncrypted/EncryptedMesh.h"
+#include "RadioEncrypted/EncryptedRadio.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
 
@@ -55,7 +53,7 @@ using Heating::Domain::ZoneInfo;
 using Heating::AcctuatorProcessor;
 
 using RadioEncrypted::Encryption;
-using RadioEncrypted::EncryptedMesh;
+using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
@@ -82,25 +80,26 @@ int main()
     Serial.begin(Config::SERIAL_RATE); 
 
     RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
-    RF24Network network(radio);
-    RF24Mesh mesh(radio, network);
 
     Acorn128 cipher;
     AnalogSignalEntropy entropyAdapter(A0, Config::ADDRESS_MASTER);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
-    EncryptedMesh encMesh (mesh, network, encryption);
-    mesh.setNodeID(Config::ADDRESS_MASTER);
+    EncryptedRadio encMesh (Config::ADDRESS_MASTER, radio, encryption);
 
     wdt_enable(WDTO_8S);
 
-    // Connect to the mesh
-    Serial << F("Connecting to the mesh...") << endl;
-    if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
-        Serial << F("Failed to connect to mesh") << endl;
+    Serial << F("Starting radio...") << endl;
+    if (!radio.begin()) {
+        Serial << F("Failed to initialize radio") << endl;
     } else {
         Serial << F("Connected.") << endl;
     }
+    const uint8_t address[] = {Config::ADDRESS_MASTER, 0, 0, 0, 0, 0};
+    radio.openReadingPipe(1,address);
+    radio.setChannel(RADIO_CHANNEL);
+    radio.setDataRate(RF24_250KBPS);
     radio.setPALevel(RF24_PA_MAX);
+    radio.startListening();
 
     wdt_reset();
 
@@ -160,13 +159,8 @@ int main()
     uint8_t reconnectMqttFailed = 0;
     uint8_t dhcpFailures = 0;
 
-    while(true) {
-
+    auto retrieveCallback = [&mqttClient, &encMesh, &processor, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived, &config]() {
         mqttClient.loop();
-        mesh.update();
-        if (Config::ADDRESS_MASTER == 0) {
-            mesh.DHCP();
-        }
 
         if (handleRadio(encMesh, processor)) {
             lastRadioReceived = millis();
@@ -176,6 +170,11 @@ int main()
         if (configUpdated) {
             storage.loadConfiguration(config);
         }
+    };
+
+    while(true) {
+
+        retrieveCallback();
 
         if (millis() - handleTime >= 60000UL) {
 
@@ -209,27 +208,7 @@ int main()
                     }
                     wdt_reset();
 
-                    mqttClient.loop();
-                    mesh.update();
-                    if (Config::ADDRESS_MASTER == 0) {
-                        mesh.DHCP();
-                    }
-                    if (handleRadio(encMesh, processor)) {
-                        lastRadioReceived = millis();
-                    }
-                    EthernetClient client = server.available();
-                    bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
-                    if (configUpdated) {
-                        storage.loadConfiguration(config);
-                    }
-                }
-            }
-
-            if (Config::ADDRESS_MASTER != 0) {
-                if (!reconnect(mesh)) {
-                    networkFailures++;
-                } else {
-                    networkFailures = 0;
+                    retrieveCallback();
                 }
             }
 
@@ -260,7 +239,7 @@ int main()
 
             bool radioFailure = millis() - lastRadioReceived > 600000UL;
 
-            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20 || publishFailed > 10 || radioFailure) {
+            if (networkFailures > 20 || dhcpFailures > 20 || radioFailure) {
                 Serial << F("Resetting") << endl;
                 Serial.flush();
                 resetFunc();
@@ -275,7 +254,6 @@ int main()
         }
 
         wdt_reset();
-        maintainDhcp();
     }
     return 0;
 } 

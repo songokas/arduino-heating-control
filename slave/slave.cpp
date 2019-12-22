@@ -17,7 +17,7 @@
 #include "CommonModule/MacroHelper.h"
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
-#include "RadioEncrypted/EncryptedMesh.h"
+#include "RadioEncrypted/EncryptedRadio.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
 
@@ -29,7 +29,7 @@ using Heating::isPinAvailable;
 using Heating::TemperatureSensor;
 
 using RadioEncrypted::Encryption;
-using RadioEncrypted::EncryptedMesh;
+using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
@@ -42,16 +42,10 @@ int main()
 {
     init();
 
-    Serial.begin(Config::SERIAL_RATE); 
-    RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
-    RF24Network network(radio);
-    RF24Mesh mesh(radio, network);
+    // for some reason d10 on by default
+    digitalWrite(10, LOW);
 
-    Acorn128 cipher;
-    AnalogSignalEntropy entropyAdapter(A0, Config::ADDRESS_SLAVE);
-    Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
-    EncryptedMesh encMesh (mesh, network, encryption);
-    mesh.setNodeID(Config::ADDRESS_SLAVE);
+    Serial.begin(Config::SERIAL_RATE); 
 
     Handler handler {};
 
@@ -59,16 +53,27 @@ int main()
     DallasTemperature sensors(&oneWire);
     TemperatureSensor sensor(sensors);
 
+    RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
+
+    Acorn128 cipher;
+    AnalogSignalEntropy entropyAdapter(A0, Config::ADDRESS_SLAVE);
+    Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
+    EncryptedRadio encMesh (Config::ADDRESS_SLAVE, radio, encryption);
+
     wdt_enable(WDTO_8S);
 
-    // Connect to the mesh
-    Serial << F("Connecting to the mesh...") << endl;
-    if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
-        Serial << F("Failed to connect to mesh") << endl;
+    Serial << F("Starting radio...") << endl;
+    if (!radio.begin()) {
+        Serial << F("Failed to initialize radio") << endl;
     } else {
         Serial << F("Connected.") << endl;
     }
+    const uint8_t address[] = {Config::ADDRESS_SLAVE, 0, 0, 0, 0, 0};
+    radio.openReadingPipe(1,address);
+    radio.setChannel(RADIO_CHANNEL);
+    radio.setDataRate(RF24_250KBPS);
     radio.setPALevel(RF24_PA_MAX);
+    radio.startListening();
 
     wdt_reset();
 
@@ -76,11 +81,8 @@ int main()
     unsigned long TIME_PERIOD = 60000UL;
     unsigned long startTime = millis();
     uint8_t networkFailures = 10;
-    // for some reason d10 on by default
-    digitalWrite(10, LOW);
+;
     while(true) {
-
-        mesh.update();
 
         if (encMesh.isAvailable()) {
             wdt_reset();
@@ -108,20 +110,14 @@ int main()
         unsigned long currentTime = millis();
         if (currentTime - startTime > TIME_PERIOD) {
             wdt_reset();
-            //handleInnerTemperature(sensor, radio);
             handler.handleTimeouts();
             startTime = currentTime;
-            if (!reconnect(mesh)) {
-                networkFailures++;
-            } else {
-                networkFailures = 0;
-            }
             Serial.println(F("Ping"));
         }
 
-        if (networkFailures > 10) {
-           resetFunc(); 
-        }
+        // if (networkFailures > 10) {
+        //    resetFunc(); 
+        // }
 
         wdt_reset();
     }

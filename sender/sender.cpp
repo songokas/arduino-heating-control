@@ -2,8 +2,6 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-#include <RF24Network.h>
-#include <RF24Mesh.h>
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
@@ -21,7 +19,7 @@
 #include "CommonModule/MacroHelper.h"
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
-#include "RadioEncrypted/EncryptedMesh.h"
+#include "RadioEncrypted/EncryptedRadio.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
 
@@ -32,7 +30,7 @@ using Heating::printPacket;
 using Heating::timer;
 
 using RadioEncrypted::Encryption;
-using RadioEncrypted::EncryptedMesh;
+using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
@@ -92,26 +90,26 @@ int main()
     attachInterrupt(digitalPinToInterrupt(Config::PIN_BUTTON), setExpected, FALLING);
 
     RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
-    RF24Network network(radio);
-    RF24Mesh mesh(radio, network);
 
     Acorn128 cipher;
     AnalogSignalEntropy entropyAdapter(A0, NODE_ID);
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
-    EncryptedMesh encMesh (mesh, network, encryption);
-    mesh.setNodeID(NODE_ID);
+    EncryptedRadio encMesh (Config::ADDRESS_MASTER, radio, encryption);
 
     wdt_enable(WDTO_8S);
 
-    // Connect to the mesh
-    Serial << F("Connecting to the mesh...") << endl;
-    if (!mesh.begin(RADIO_CHANNEL, RF24_250KBPS, MESH_TIMEOUT)) {
-        Serial << F("Failed to connect to mesh") << endl;
+    Serial << F("Starting radio...") << endl;
+    if (!radio.begin()) {
+        Serial << F("Failed to initialize radio") << endl;
     } else {
         Serial << F("Connected.") << endl;
     }
-
-    radio.setPALevel(RF24_PA_HIGH);
+    const uint8_t address[] = {NODE_ID, 0, 0, 0, 0, 0};
+    radio.openReadingPipe(1,address);
+    radio.setChannel(RADIO_CHANNEL);
+    radio.setDataRate(RF24_250KBPS);
+    radio.setPALevel(RF24_PA_MAX);
+    radio.startListening();
 
     OneWire oneWire(Config::PIN_TEMPERATURE); 
     DallasTemperature sensors(&oneWire);
@@ -131,7 +129,6 @@ int main()
 
     while(true) {
 
-        mesh.update();
         wdt_reset();
 
 #ifdef TEST_RECEIVE
@@ -221,7 +218,6 @@ int main()
 
         radio.powerUp();
 
-        reconnect(mesh);
 #endif
         // @TODO bug with failing to connect  
         if (failures > 10) {

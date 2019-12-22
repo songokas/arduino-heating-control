@@ -201,7 +201,6 @@ ZoneInfo & AcctuatorProcessor::getAvailableZoneInfoById(byte id)
 void AcctuatorProcessor::printConfig(EthernetClient & client) const
 {
     StaticJsonBuffer<Config::MAX_CONFIG_SIZE> jsonBuffer;
-    //DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE);
     JsonObject & root = jsonBuffer.createObject();
     root["acctuatorWarmupTime"] = config.acctuatorWarmupTime;
     root["heaterPumpStopTime"] = config.heaterPumpStopTime;
@@ -235,7 +234,6 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
 void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo, uint8_t networkFailures) const
 {
     StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
-    //DynamicJsonBuffer jsonBuffer(3000);
     JsonObject & root = jsonBuffer.createObject();
     JsonObject & system = root.createNestedObject("system");
     system["m"] = freeRam();
@@ -285,6 +283,5 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
         }
     }
     root.printTo(client);
-    //root.printTo(Serial);
 
 }
