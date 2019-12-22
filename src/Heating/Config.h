@@ -49,7 +49,7 @@ namespace Heating
             // default temperature if no configuration matches sender
             static constexpr float TEMPERATURE_DEFAULT = 21;
             // when a button is clicked raise temperature to
-            static const byte RAISED_TEMPERATURE = 23;
+            static const int16_t RAISED_TEMPERATURE = 2300;
 
             // wait for temperature to drop more than diff
             static constexpr float TEMPERATURE_DROP_WAIT = 0.7;

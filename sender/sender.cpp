@@ -178,13 +178,13 @@ int main()
             }
         }
 
-        
+        float temp = sensor.read();
+        packet.currentTemperature = (uint16_t)(100 * temp);
+        packet.expectedTemperature = expectedTemperature;
+
 #ifdef KEEP_ALIVE
         if (millis() - timeLastSent > 60000UL) {
-            reconnect(mesh);
             timeLastSent = millis();
-            packet.currentTemperature = sensor.read();
-            packet.expectedTemperature = expectedTemperature;
 
             Serial.print(F("Sent: "));
             printPacket(packet);
@@ -198,9 +198,7 @@ int main()
             }
         }
 #else
-        float temp = sensor.read();
-        packet.currentTemperature = (uint16_t)(temp > 0 ? 100 * temp : 0);
-        packet.expectedTemperature = expectedTemperature;
+
 
         printPacket(packet);
         if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {

@@ -19,8 +19,8 @@ namespace Heating
 #pragma pack (1)
     struct Packet {
         uint8_t id;
-        uint16_t currentTemperature;
-        uint16_t expectedTemperature;
+        int16_t currentTemperature;
+        int16_t expectedTemperature;
     };
 #pragma pack (0)
 
