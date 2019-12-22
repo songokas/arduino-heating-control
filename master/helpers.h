@@ -100,7 +100,7 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
     return configUpdated;
 }
 
-void handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
+bool handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
 {
     if (radio.isAvailable()) {
         Packet received;
@@ -108,16 +108,18 @@ void handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
         if (!radio.receive(&received, sizeof(received), 0, header)) {
             Serial.println(F("Failed to receive packet on master"));
             printPacket(received);
-            return;
+            return false;
         }
 
         printPacket(received);
         if (isPinAvailable(received.id, Config::AVAILABLE_PINS_MEGA, sizeof(Config::AVAILABLE_PINS_MEGA)/sizeof(Config::AVAILABLE_PINS_MEGA[0]))) {
             processor.handlePacket(received);
+            return true;
         } else {
             Serial.println(F("Ignoring packet since its pin is not available"));
         }
     }
+    return false;
 }
 
 void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)

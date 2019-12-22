@@ -200,7 +200,8 @@ ZoneInfo & AcctuatorProcessor::getAvailableZoneInfoById(byte id)
 // this class should not print 
 void AcctuatorProcessor::printConfig(EthernetClient & client) const
 {
-    DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE);
+    StaticJsonBuffer<Config::MAX_CONFIG_SIZE> jsonBuffer;
+    //DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE);
     JsonObject & root = jsonBuffer.createObject();
     root["acctuatorWarmupTime"] = config.acctuatorWarmupTime;
     root["heaterPumpStopTime"] = config.heaterPumpStopTime;

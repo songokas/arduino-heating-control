@@ -153,6 +153,7 @@ int main()
 
     unsigned long handleTime = 0;
     unsigned long timeUpdate = 0;
+    unsigned long lastRadioReceived = 0;
     uint8_t networkFailures = 0;
     uint8_t failureToApplyStates = 0;
     uint8_t publishFailed = 0;
@@ -167,7 +168,9 @@ int main()
             mesh.DHCP();
         }
 
-        handleRadio(encMesh, processor);
+        if (handleRadio(encMesh, processor)) {
+            lastRadioReceived = millis();
+        }
         EthernetClient client = server.available();
         bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
         if (configUpdated) {
@@ -194,6 +197,9 @@ int main()
 
             if (!heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
                 for (auto &state: processor.getStates()) {
+                    if (!(state.pin.id > 0)) {
+                        continue;
+                    }
 
                     wdt_reset();
                     if (!processor.applyState(state, encMesh, heaterInfo)) {
@@ -208,8 +214,9 @@ int main()
                     if (Config::ADDRESS_MASTER == 0) {
                         mesh.DHCP();
                     }
-
-                    handleRadio(encMesh, processor);
+                    if (handleRadio(encMesh, processor)) {
+                        lastRadioReceived = millis();
+                    }
                     EthernetClient client = server.available();
                     bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
                     if (configUpdated) {
@@ -251,9 +258,9 @@ int main()
                 dhcpFailures = 0;
             }
 
+            bool radioFailure = millis() - lastRadioReceived > 600000UL;
 
-            Serial << F("Network ") << networkFailures << F(" Failure to send ") << failureToApplyStates << F(" Dhcp ") << dhcpFailures << F(" Radio ") << radio.failureDetected << endl;
-            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20/* || radio.failureDetected*/) {
+            if (networkFailures > 20 || failureToApplyStates > 100 || dhcpFailures > 20 || publishFailed > 10 || radioFailure) {
                 Serial << F("Resetting") << endl;
                 Serial.flush();
                 resetFunc();
