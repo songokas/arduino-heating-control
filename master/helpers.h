@@ -92,8 +92,8 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
                 sendHtml(client, manager, heaterInfo, networkFailures);
             }
             delete requestString;
-            delay(10);
             client.stop();
+            delay(10);
             Serial.println(F("Client disconnected"));
         }
     }
@@ -195,12 +195,12 @@ enum class ConnectionStatus
     FailedToConnect
 };
 
-ConnectionStatus reconnectToMqtt(PubSubClient & client) {
+ConnectionStatus reconnectToMqtt(const char * clientName, PubSubClient & client) {
     // Loop until we're reconnected
     if (!client.connected()) {
         DPRINTLN(F("Attempting MQTT connection..."));
         // Attempt to connect
-        if (client.connect("ESP8266Client")) {
+        if (client.connect(clientName)) {
             DPRINTLN(F("Mqtt connected"));
             return ConnectionStatus::Connected;
 

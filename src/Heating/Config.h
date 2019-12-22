@@ -24,6 +24,7 @@ namespace Heating
 
             static const byte ADDRESS_MASTER = 88;
             static const byte ADDRESS_SLAVE = 89;
+            static const byte ADDRESS_FORWARD = 255;
 
             static constexpr byte AVAILABLE_PINS_NANO[] = {3, 5, 6, 9, 10};
             // 2 to 13 and 44 to 46.

@@ -66,7 +66,7 @@ bool AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio,
 
 void AcctuatorProcessor::handlePacket(const Packet & packet)
 {
-    float currentTemperature = (float)(packet.currentTemperature != 0 ? packet.currentTemperature / 100 : 0);
+    float currentTemperature = packet.currentTemperature != 0 ? (float)packet.currentTemperature / 100 : 0;
     if (currentTemperature > 50 || currentTemperature < -40) {
         Serial.print(F("Error temperature for "));
         Serial.print(packet.id);
@@ -89,7 +89,7 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
     }
     zoneInfo.addTemperature(currentTemperature);
     zoneInfo.dtReceived = now();
-    float expectedTemperature = (float)(packet.expectedTemperature != 0 ? packet.expectedTemperature / 100 : 0);
+    float expectedTemperature = packet.expectedTemperature != 0 ? (float)packet.expectedTemperature / 100 : 0;
     zoneInfo.senderExpectedTemperature = expectedTemperature;
 }
 

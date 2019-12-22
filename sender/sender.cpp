@@ -109,6 +109,9 @@ int main()
         }
     }
     if (!radio.isChipConnected()) {
+        radio.powerDown();
+        delay(100);
+        resetFunc();
         return 1;
     }
     const uint8_t address[] = {NODE_ID, 0, 0, 0, 0, 0};
@@ -201,7 +204,7 @@ int main()
 
 
         printPacket(packet);
-        if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER)) {
+        if (!encMesh.send(&packet, sizeof(packet), 0, Config::ADDRESS_MASTER, 5, Config::ADDRESS_FORWARD)) {
             Serial.println(F("Failed to send packet to master"));
             failures++;
         } else {

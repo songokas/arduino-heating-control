@@ -73,10 +73,16 @@ int main()
         }
     }
     if (!radio.isChipConnected()) {
+        radio.powerDown();
+        delay(100);
+        resetFunc();
         return 1;
     }
-    const uint8_t address[] = {Config::ADDRESS_SLAVE, 0, 0, 0, 0, 0};
-    radio.openReadingPipe(1,address);
+    const uint8_t slaveAddress[] = {Config::ADDRESS_SLAVE, 0, 0, 0, 0, 0};
+    const uint8_t forwardAddress[] = {Config::ADDRESS_FORWARD, 0, 0, 0, 0, 0};
+
+    radio.openReadingPipe(1, slaveAddress);
+    radio.openReadingPipe(2, forwardAddress);
     radio.setChannel(RADIO_CHANNEL);
     radio.setDataRate(RF24_250KBPS);
     radio.setPALevel(RF24_PA_MAX);
@@ -98,6 +104,11 @@ int main()
             if (!encMesh.receive(&received, sizeof(received), 0, header, Config::ADDRESS_MASTER)) {
                 Serial.println(F("Failed to receive for slave"));
                 Serial.println(received.id);
+                continue;
+            }
+
+            if (header.to_node != encMesh.getNodeId()) {
+                Serial << F("Ignoring forward to node: ") << header.to_node << endl;
                 continue;
             }
             

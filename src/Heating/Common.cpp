@@ -25,9 +25,9 @@ namespace Heating
         Serial.print(F("Id: "));
         Serial.print(packet.id);
         Serial.print(F(" Current temperature: "));
-        Serial.print(packet.currentTemperature);
+        Serial.print((float)packet.currentTemperature / 100);
         Serial.print(F(" Expected temperature: "));
-        Serial.println(packet.expectedTemperature);
+        Serial.println((float)packet.expectedTemperature / 100);
     }
 
     bool isPinAvailable(byte pin, const byte availablePins [], byte arrayLength)

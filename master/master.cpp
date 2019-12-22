@@ -99,6 +99,9 @@ int main()
         }
     }
     if (!radio.isChipConnected()) {
+        radio.powerDown();
+        delay(100);
+        resetFunc();
         return 1;
     }
 
@@ -155,8 +158,11 @@ int main()
 
     PubSubClient mqttClient(net);
     mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
+    const char * clientName = "heating-master";
 
-    reconnectToMqtt(mqttClient);
+    if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
+        Serial << F("Failed to connect to mqtt") << endl;
+    }
 
     unsigned long handleTime = 0;
     unsigned long timeUpdate = 0;
@@ -184,12 +190,14 @@ int main()
 
         retrieveCallback();
 
-        if (millis() - handleTime >= 60000UL) {
+        unsigned long timeToSend = random(1000, 10000) + 60000UL;
+
+        if (millis() - handleTime >= timeToSend) {
 
             wdt_reset();
 
 #ifdef OWN_TEMPERATURE_SENSOR
-            Packet packet { OWN_TEMPERATURE_SENSOR, sensor.read(), 0};
+            Packet packet { OWN_TEMPERATURE_SENSOR, 100 * sensor.read(), 0};
             wdt_reset();
             processor.handlePacket(packet);
 #endif
@@ -224,7 +232,7 @@ int main()
             sprintf(liveMsg, "%lu", millis());
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
-                if (reconnectToMqtt(mqttClient) != ConnectionStatus::Connected) {
+                if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
                     reconnectMqttFailed++;
                 } else {
                     reconnectMqttFailed = 0;
@@ -249,7 +257,10 @@ int main()
             if (networkFailures > 20 || dhcpFailures > 20 || radioFailure) {
                 Serial << F("Resetting") << endl;
                 Serial.flush();
+                radio.powerDown();
+                delay(200);
                 resetFunc();
+                return 1;
             }
         }
 
