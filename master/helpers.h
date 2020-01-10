@@ -66,36 +66,35 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
 
     bool configUpdated = false;
     if (client) {
-        if (client.connected()) {
-            unsigned int i = 0;
-            char * requestString = new char[Config::MAX_REQUEST_SIZE + 1] {};
-            while (client.available() && i < Config::MAX_REQUEST_SIZE) {
-                requestString[i] = client.read();
-                i++;
-            }
-            requestString[i] = '\0';
-            if (strstr(requestString, "/clear/") > 0) {
-                Serial.println(F("Send clear"));
-                configUpdated = storage.saveConfiguration("0");
-                sendJson(client, configUpdated);
-            } else if (strstr(requestString, "application/json") > 0) {
-                Serial.println(F("Send ajax"));
-                char * pos = strstr(requestString, "\r\n\r\n");
-                if (pos) {
-                    configUpdated = storage.saveConfiguration(pos + 4);
-                } else {
-                    configUpdated = false;
-                }
-                sendJson(client, configUpdated);
-            } else {
-                Serial.println(F("Send html"));
-                sendHtml(client, manager, heaterInfo, networkFailures);
-            }
-            delete requestString;
-            client.stop();
-            delay(10);
-            Serial.println(F("Client disconnected"));
+        unsigned int i = 0;
+        char * requestString = new char[Config::MAX_REQUEST_SIZE + 1] {};
+        while (client.available() && i < Config::MAX_REQUEST_SIZE) {
+            requestString[i] = client.read();
+            i++;
         }
+        requestString[i] = '\0';
+        if (strstr(requestString, "/clear/") > 0) {
+            Serial.println(F("Send clear"));
+            configUpdated = storage.saveConfiguration("0");
+            sendJson(client, configUpdated);
+        } else if (strstr(requestString, "application/json") > 0) {
+            Serial.println(F("Send ajax"));
+            char * pos = strstr(requestString, "\r\n\r\n");
+            if (pos) {
+                configUpdated = storage.saveConfiguration(pos + 4);
+            } else {
+                configUpdated = false;
+            }
+            sendJson(client, configUpdated);
+        } else {
+            Serial.println(F("Send html"));
+            sendHtml(client, manager, heaterInfo, networkFailures);
+        }
+        delete requestString;
+        delay(10);
+        client.stop();
+        delay(10);
+        Serial.println(F("Client disconnected"));
     }
     return configUpdated;
 }
@@ -198,6 +197,7 @@ enum class ConnectionStatus
 ConnectionStatus reconnectToMqtt(const char * clientName, PubSubClient & client) {
     // Loop until we're reconnected
     if (!client.connected()) {
+        wdt_reset();
         DPRINTLN(F("Attempting MQTT connection..."));
         // Attempt to connect
         if (client.connect(clientName)) {
@@ -210,4 +210,30 @@ ConnectionStatus reconnectToMqtt(const char * clientName, PubSubClient & client)
         }
     }
     return ConnectionStatus::Connected;
+}
+
+bool connectToRadio(RF24 & radio)
+{
+    Serial << F("Starting radio...") << endl;
+    uint8_t retryRadio = 10;
+    while (retryRadio-- > 0) {
+        if (!radio.begin()) {
+            Serial << F("Failed to initialize radio") << endl;
+            delay(100);
+        } else if (radio.isChipConnected()) {
+            Serial << F("Initialized.") << endl;
+            break;
+        }
+    }
+    if (!radio.isChipConnected()) {
+        return false;
+    }
+
+    const uint8_t address[] = {Config::ADDRESS_MASTER, 0, 0, 0, 0, 0};
+    radio.openReadingPipe(1,address);
+    radio.setChannel(RADIO_CHANNEL);
+    radio.setDataRate(RF24_250KBPS);
+    radio.setPALevel(RF24_PA_MAX);
+    radio.startListening();
+    return true;
 }

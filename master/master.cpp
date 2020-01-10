@@ -73,6 +73,8 @@ int main()
 
     wdt_disable();
 
+    uint8_t wdtTime = WDTO_8S;
+
     // heater off
     pinMode(Config::PIN_HEATING, OUTPUT);
     digitalWrite(Config::PIN_HEATING, HIGH);
@@ -86,31 +88,9 @@ int main()
     Encryption encryption (cipher, SHARED_KEY, entropyAdapter);
     EncryptedRadio encMesh (Config::ADDRESS_MASTER, radio, encryption);
 
-    wdt_enable(WDTO_8S);
+    wdt_enable(wdtTime);
 
-    Serial << F("Starting radio...") << endl;
-    uint8_t retryRadio = 10;
-    while (retryRadio-- > 0) {
-        if (!radio.begin()) {
-            Serial << F("Failed to initialize radio") << endl;
-        } else if (radio.isChipConnected()) {
-            Serial << F("Initialized.") << endl;
-            break;
-        }
-    }
-    if (!radio.isChipConnected()) {
-        radio.powerDown();
-        delay(100);
-        resetFunc();
-        return 1;
-    }
-
-    const uint8_t address[] = {Config::ADDRESS_MASTER, 0, 0, 0, 0, 0};
-    radio.openReadingPipe(1,address);
-    radio.setChannel(RADIO_CHANNEL);
-    radio.setDataRate(RF24_250KBPS);
-    radio.setPALevel(RF24_PA_MAX);
-    radio.startListening();
+    connectToRadio(radio);
 
     wdt_reset();
 
@@ -171,11 +151,11 @@ int main()
     uint8_t failureToApplyStates = 0;
     uint8_t publishFailed = 0;
     uint8_t reconnectMqttFailed = 0;
-    uint8_t dhcpFailures = 0;
 
     auto retrieveCallback = [&mqttClient, &encMesh, &processor, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived, &config]() {
         mqttClient.loop();
 
+        wdt_reset();
         if (handleRadio(encMesh, processor)) {
             lastRadioReceived = millis();
         }
@@ -228,8 +208,8 @@ int main()
                 }
             }
 
-            char liveMsg[16] {0};
-            sprintf(liveMsg, "%lu", millis());
+            char liveMsg[30] {0};
+            sprintf(liveMsg, "%lu %d", millis(), freeRam());
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
                 if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
@@ -247,14 +227,19 @@ int main()
             handleTime = millis();
 
             if (!maintainDhcp()) {
-                dhcpFailures++;
+                networkFailures++;
             } else {
-                dhcpFailures = 0;
+                networkFailures = 0;
             }
 
-            bool radioFailure = millis() - lastRadioReceived > 600000UL;
+            if (radio.failureDetected) {
+                radio.failureDetected = 0;
+                connectToRadio(radio);
+            }
 
-            if (networkFailures > 20 || dhcpFailures > 20 || radioFailure) {
+            bool receiveFailure = millis() - lastRadioReceived > 1800000UL;
+
+            if (receiveFailure) {
                 Serial << F("Resetting") << endl;
                 Serial.flush();
                 radio.powerDown();
@@ -265,10 +250,12 @@ int main()
         }
 
         if (millis() - timeUpdate >= 600000UL) {
+            wdt_disable();
             timeClient.update();
             syncTime(timeClient);
             timeUpdate = millis();
-
+            wdt_enable(wdtTime);
+            server.begin();
         }
 
         wdt_reset();

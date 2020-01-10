@@ -60,6 +60,8 @@ namespace Heating
 
             static const unsigned int MAX_CONFIG_SIZE = 1300;
             static const unsigned int MAX_INFO_JSON_SIZE = 2000;
+            // addtional info stored in eeprom
+            static const unsigned int MIN_STORAGE_INDEX = 2500;
 
             static const byte MAX_HEATER_HISTORY = 3;
             static const byte MAX_ZONE_ERRORS = 3;
@@ -70,7 +72,7 @@ namespace Heating
             static constexpr byte MASTER_MAC[] { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
             // ip address if dhcp fails
-            static constexpr byte MASTER_IP[] { 192, 168, 0, 174 };
+            static constexpr byte MASTER_IP[] { 192, 168, 0, 120 };
 
             //pin that turns heater on/off
             static const byte PIN_HEATING = 30;

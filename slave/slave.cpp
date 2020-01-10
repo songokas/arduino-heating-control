@@ -62,31 +62,7 @@ int main()
 
     wdt_enable(WDTO_8S);
 
-    Serial << F("Starting radio...") << endl;
-    uint8_t retryRadio = 10;
-    while (retryRadio-- > 0) {
-        if (!radio.begin()) {
-            Serial << F("Failed to initialize radio") << endl;
-        } else if (radio.isChipConnected()) {
-            Serial << F("Initialized.") << endl;
-            break;
-        }
-    }
-    if (!radio.isChipConnected()) {
-        radio.powerDown();
-        delay(100);
-        resetFunc();
-        return 1;
-    }
-    const uint8_t slaveAddress[] = {Config::ADDRESS_SLAVE, 0, 0, 0, 0, 0};
-    const uint8_t forwardAddress[] = {Config::ADDRESS_FORWARD, 0, 0, 0, 0, 0};
-
-    radio.openReadingPipe(1, slaveAddress);
-    radio.openReadingPipe(2, forwardAddress);
-    radio.setChannel(RADIO_CHANNEL);
-    radio.setDataRate(RF24_250KBPS);
-    radio.setPALevel(RF24_PA_MAX);
-    radio.startListening();
+    connectToRadio(radio);
 
     wdt_reset();
 
@@ -130,12 +106,14 @@ int main()
             wdt_reset();
             handler.handleTimeouts();
             startTime = currentTime;
+            if (radio.failureDetected) {
+                radio.failureDetected = 0;
+                connectToRadio(radio);
+            }
             Serial.println(F("Ping"));
+
         }
 
-        // if (networkFailures > 10) {
-        //    resetFunc(); 
-        // }
 
         wdt_reset();
     }

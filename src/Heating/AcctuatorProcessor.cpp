@@ -5,6 +5,7 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <avr/wdt.h>
+#include <EEPROM.h>
 
 #include "Common.h"
 #include "Config.h"
@@ -61,6 +62,7 @@ bool AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio,
         analogWrite(zoneInfo.pin.id, zoneInfo.getPwmState());
     }
     zoneInfo.recordState(zoneInfo.getState());
+    //saveReached(zoneInfo.pin.id, zoneInfo.reachedDesired);
     return true;
 }
 
@@ -86,6 +88,9 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
     ZoneInfo & zoneInfo = getAvailableZoneInfoById(packet.id);
     if (!(zoneInfo.pin.id > 0)) {
         zoneInfo.pin.id = packet.id;
+        //if (hasReachedBefore(packet.id)) {
+        //    zoneInfo.reachedDesired = true;
+        //}
     }
     zoneInfo.addTemperature(currentTemperature);
     zoneInfo.dtReceived = now();
@@ -107,6 +112,12 @@ void AcctuatorProcessor::handleStates()
 
         if (zoneInfo.senderExpectedTemperature > 0) {
             setExpectedTemperature(zoneInfo, zoneInfo.senderExpectedTemperature);
+            continue;
+        }
+
+        if (zoneInfo.isWarm(7200000UL)) {
+            zoneInfo.reachedDesired = true;
+            zoneInfo.pin.state = 0;
             continue;
         }
 
@@ -142,9 +153,11 @@ void AcctuatorProcessor::setExpectedTemperature(ZoneInfo & zoneInfo, float expec
         float diff = expectedTemperature - currentTemperature;
         statePercent = diff < config.minTemperatureDiffForPwm ? 100 / config.minTemperatureDiffForPwm * diff : 100;
         if (statePercent < config.minPwmState) {
-            statePercent = config.minPwmState;
+            zoneInfo.reachedDesired = true;
+            statePercent = 0;
+        } else {
+            zoneInfo.reachedDesired = false;
         }
-        zoneInfo.reachedDesired = false;
     } else {
         zoneInfo.reachedDesired = true;
         statePercent = 0;
@@ -286,4 +299,14 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
     }
     root.printTo(client);
 
+}
+
+bool AcctuatorProcessor::hasReachedBefore(byte id)
+{
+    return EEPROM.read(Config::MIN_STORAGE_INDEX + id) == 1;
+}
+
+void AcctuatorProcessor::saveReached(byte id, bool reached)
+{
+    EEPROM.update(Config::MIN_STORAGE_INDEX + id, reached ? 1 : 0);
 }

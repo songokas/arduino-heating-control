@@ -38,6 +38,9 @@ namespace Heating
             ZoneInfo & getAvailableZoneInfoById(byte id);
 
             void setExpectedTemperature(ZoneInfo & zoneInfo, float expectedTemperature);
+
+            bool hasReachedBefore(byte id);
+            void saveReached(byte id, bool reached);
     };
 }
 
