@@ -208,8 +208,17 @@ int main()
                 }
             }
 
+            uint8_t socketsConnected = 0;
+            for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
+                EthernetClient client(sock);
+                Serial << sock << F(" status ") << client.status() << F(" connected ") << client.connected() << endl;
+                if (client.connected()) {
+                    socketsConnected++;
+                }
+            }
+
             char liveMsg[30] {0};
-            sprintf(liveMsg, "%lu %d", millis(), freeRam());
+            sprintf(liveMsg, "%lu %d %hu", millis(), freeRam(), socketsConnected);
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
                 if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
@@ -237,6 +246,8 @@ int main()
                 connectToRadio(radio);
             }
 
+
+
             bool receiveFailure = millis() - lastRadioReceived > 1800000UL;
 
             if (receiveFailure) {
@@ -255,6 +266,11 @@ int main()
             syncTime(timeClient);
             timeUpdate = millis();
             wdt_enable(wdtTime);
+            // reset all connections
+            for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
+                EthernetClient client(sock);
+                client.stop();
+            }
             server.begin();
         }
 

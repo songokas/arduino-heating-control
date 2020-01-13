@@ -115,9 +115,9 @@ void AcctuatorProcessor::handleStates()
             continue;
         }
 
-        if (zoneInfo.isWarm(7200000UL)) {
+        if (zoneInfo.isWarm(7200) && !zoneInfo.reachedDesired) {
             zoneInfo.reachedDesired = true;
-            zoneInfo.pin.state = 0;
+            setExpectedTemperature(zoneInfo, Config::TEMPERATURE_DEFAULT);
             continue;
         }
 
