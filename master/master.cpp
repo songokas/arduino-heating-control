@@ -208,6 +208,12 @@ int main()
                 }
             }
 
+                        wdt_disable();
+            timeClient.update();
+            syncTime(timeClient);
+            timeUpdate = millis();
+            wdt_enable(wdtTime);
+
             uint8_t socketsConnected = 0;
             for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
                 EthernetClient client(sock);
@@ -246,8 +252,6 @@ int main()
                 connectToRadio(radio);
             }
 
-
-
             bool receiveFailure = millis() - lastRadioReceived > 1800000UL;
 
             if (receiveFailure) {
@@ -267,11 +271,11 @@ int main()
             timeUpdate = millis();
             wdt_enable(wdtTime);
             // reset all connections
-            for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
-                EthernetClient client(sock);
-                client.stop();
-            }
-            server.begin();
+            // for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
+                // EthernetClient client(sock);
+                // client.stop();
+            // }
+            // server.begin();
         }
 
         wdt_reset();

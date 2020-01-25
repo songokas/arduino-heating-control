@@ -115,12 +115,6 @@ void AcctuatorProcessor::handleStates()
             continue;
         }
 
-        if (zoneInfo.isWarm(7200) && !zoneInfo.reachedDesired) {
-            zoneInfo.reachedDesired = true;
-            setExpectedTemperature(zoneInfo, Config::TEMPERATURE_DEFAULT);
-            continue;
-        }
-
         if (!zoneConfig) {
             setExpectedTemperature(zoneInfo, Config::TEMPERATURE_DEFAULT);
             continue;
@@ -130,6 +124,9 @@ void AcctuatorProcessor::handleStates()
         bool stateSet = false;
         for (const auto & time: zoneConfig->times) {
             if (currentHours >= time.from && currentHours < time.to) {
+                if (zoneInfo.isWarm(9800) && !zoneInfo.reachedDesired) {
+                    zoneInfo.reachedDesired = true;
+                }
                 setExpectedTemperature(zoneInfo, time.expectedTemperature);
                 stateSet = true;
                 break;
