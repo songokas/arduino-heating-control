@@ -61,43 +61,104 @@ void sendJson(EthernetClient & client, bool ok)
     }
 }
 
-bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures)
+bool handlePacket(AcctuatorProcessor & processor, const Packet & packet)
 {
+    printPacket(packet);
+    if (isPinAvailable(packet.id, Config::AVAILABLE_PINS_MEGA, sizeof(Config::AVAILABLE_PINS_MEGA)/sizeof(Config::AVAILABLE_PINS_MEGA[0]))) {
+        processor.handlePacket(packet);
+        return true;
+    } else {
+        Serial << F("Ignoring packet since its pin is not available") << endl;
+    }
+    return false;
+}
 
+bool retrieveJson(JsonDocument & doc, const char * content)
+{
+    DeserializationError error = deserializeJson(doc, content);
+    if (error) {
+        Serial << F("deserializeJson() failed: ") << error.c_str() << endl;
+        return false;
+    } else {
+        return true;
+    }
+    return false;
+}
+
+bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures, const Config & config)
+{
     bool configUpdated = false;
+    char endOfHeaders[] = "\r\n\r\n";
     if (client) {
         unsigned int i = 0;
-        char * requestString = new char[Config::MAX_REQUEST_SIZE + 1] {};
+        char requestString[Config::MAX_REQUEST_SIZE + 1] {};
         while (client.available() && i < Config::MAX_REQUEST_SIZE) {
             requestString[i] = client.read();
             i++;
         }
         requestString[i] = '\0';
         if (strstr(requestString, "/clear/") > 0) {
-            Serial.println(F("Send clear"));
+
+            Serial << F("Received clear") << endl;
             configUpdated = storage.saveConfiguration("0");
             sendJson(client, configUpdated);
+
+        } else if (strstr(requestString, "/heating/") > 0) {
+
+            Serial << F("Received heating") << endl;
+
+            bool success = false;
+            char * pos = strstr(requestString, endOfHeaders);
+            if (pos) {
+                for (const auto &zone: config.zones) {
+                    if (!(zone.id > 0)) {
+                        continue;
+                    }
+                    char expectedTopic[MAX_LEN_TOPIC] {0};
+                    snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.name);
+
+                    if (strstr(requestString, expectedTopic) > 0) {
+                        StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
+                        if (retrieveJson(doc, pos + 4)) {
+                            if (doc["temperature"].is<int16_t>()) {
+                                Packet packet {zone.id, doc["temperature"]};
+                                success = handlePacket(manager, packet);
+                            } else {
+                                Serial << F("Invalid json structure") << endl;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            sendJson(client, success);
+
         } else if (strstr(requestString, "application/json") > 0) {
-            Serial.println(F("Send ajax"));
-            char * pos = strstr(requestString, "\r\n\r\n");
+
+            Serial.println(F("Received ajax"));
+            char * pos = strstr(requestString, endOfHeaders);
             if (pos) {
                 configUpdated = storage.saveConfiguration(pos + 4);
             } else {
                 configUpdated = false;
             }
             sendJson(client, configUpdated);
+
         } else {
-            Serial.println(F("Send html"));
+
+            Serial << F("Send html") << endl;
             sendHtml(client, manager, heaterInfo, networkFailures);
+
         }
-        delete requestString;
         delay(10);
         client.stop();
         delay(10);
-        Serial.println(F("Client disconnected"));
+        Serial << F("Client disconnected") << endl;
     }
     return configUpdated;
 }
+
+
 
 bool handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
 {
@@ -109,17 +170,11 @@ bool handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
             printPacket(received);
             return false;
         }
-
-        printPacket(received);
-        if (isPinAvailable(received.id, Config::AVAILABLE_PINS_MEGA, sizeof(Config::AVAILABLE_PINS_MEGA)/sizeof(Config::AVAILABLE_PINS_MEGA[0]))) {
-            processor.handlePacket(received);
-            return true;
-        } else {
-            Serial.println(F("Ignoring packet since its pin is not available"));
-        }
+        return handlePacket(processor, received);
     }
     return false;
 }
+
 
 void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)
 {
@@ -187,29 +242,21 @@ bool maintainDhcp() {
   return true;
 }
 
-
-enum class ConnectionStatus
-{
-    Connected,
-    FailedToConnect
-};
-
-ConnectionStatus reconnectToMqtt(const char * clientName, PubSubClient & client) {
+bool connectToMqtt(const char * clientName, PubSubClient & client) {
     // Loop until we're reconnected
     if (!client.connected()) {
         wdt_reset();
-        DPRINTLN(F("Attempting MQTT connection..."));
-        // Attempt to connect
+        Serial << F("Attempting MQTT connection...");
         if (client.connect(clientName)) {
-            DPRINTLN(F("Mqtt connected"));
-            return ConnectionStatus::Connected;
+            Serial << F("Mqtt connected") << endl;
+            return true;
 
         } else {
             Serial << F("Mqtt connection failed, rc=") << client.state() << F(" try again in 5 seconds") << endl;
-            return ConnectionStatus::FailedToConnect;
+            return false;
         }
     }
-    return ConnectionStatus::Connected;
+    return true;
 }
 
 bool connectToRadio(RF24 & radio)
@@ -236,4 +283,30 @@ bool connectToRadio(RF24 & radio)
     radio.setPALevel(RF24_PA_MAX);
     radio.startListening();
     return true;
+}
+
+void mqttCallback(const char * topic, uint8_t * payload, uint16_t len) {
+    
+    Serial << F("Mqtt message received for: ") << topic << endl;
+    char message[MAX_LEN_MESSAGE];
+    memcpy(message, payload, MIN(len, COUNT_OF(message)));
+
+    bool handled = false;
+    for (const auto &zone: config.zones) {
+        if (!(zone.id > 0)) {
+            continue;
+        }
+        char expectedTopic[MAX_LEN_TOPIC] {0};
+        snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.name);
+        if (strncmp(expectedTopic, topic, COUNT_OF(expectedTopic)) == 0) {
+            int16_t value = atoi(message);
+            Packet packet { zone.id, value };
+            handled = handlePacket(processor, packet);
+            break;
+        }
+    }
+
+    if (!handled) {
+        Serial << "Not handled: " << topic << endl; 
+    }
 }

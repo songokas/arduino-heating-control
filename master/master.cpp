@@ -37,6 +37,7 @@
 #include "RadioEncrypted/EncryptedRadio.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
+#include "MqttModule/MqttConfig.h"
 
 using Heating::Packet;
 using Heating::printTime;
@@ -58,14 +59,17 @@ using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
 
+const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
+// mqtt is using c style callback and we require these
+Config config {};
+AcctuatorProcessor processor(config);
+
 #include "html.h"
 #include "helpers.h"
 
 extern int freeRam ();
 
-void(* resetFunc) (void) = 0;
-
-const char CHANNEL_KEEP_ALIVE[] {"heating/master/keep-alive"};
+// void(* resetFunc) (void) = 0;
 
 int main()
 {
@@ -95,7 +99,7 @@ int main()
     wdt_reset();
 
     if (Ethernet.begin(Config::MASTER_MAC) == 0) {
-        Serial.println(F("Failed to obtain address"));
+        Serial << F("Failed to obtain dhcp address") << endl;
         Ethernet.begin(Config::MASTER_MAC, Config::MASTER_IP);
     }
     delay(1000);
@@ -121,10 +125,8 @@ int main()
     Serial.println();
 
     Storage storage {};
-    Config config {};
     HeaterInfo heaterInfo {initTime};
     storage.loadConfiguration(config);
-    AcctuatorProcessor processor(config);
 
 #ifdef OWN_TEMPERATURE_SENSOR
 
@@ -137,12 +139,23 @@ int main()
     EthernetClient net;
 
     PubSubClient mqttClient(net);
-    mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
-    const char * clientName = "heating-master";
 
-    if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
-        Serial << F("Failed to connect to mqtt") << endl;
+    Serial << F("Wait for mqtt server on ") << MQTT_SERVER_ADDRESS << endl;
+
+    uint16_t mqttAttempts = 0;
+    mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
+    while (!mqttClient.connect(NODE_NAME) && mqttAttempts < 10) {
+        mqttAttempts++;
+        Serial.print(".");
+        delay(500 * mqttAttempts);
+        wdt_reset();
     }
+    if (mqttAttempts >= 10) {
+        Serial << F("failed to connect.") << endl;
+    } else {
+        Serial << F("connected.") << endl;
+    }
+    mqttClient.setCallback(mqttCallback);
 
     unsigned long handleTime = 0;
     unsigned long timeUpdate = 0;
@@ -160,7 +173,7 @@ int main()
             lastRadioReceived = millis();
         }
         EthernetClient client = server.available();
-        bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures);
+        bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures, config);
         if (configUpdated) {
             storage.loadConfiguration(config);
         }
@@ -208,26 +221,17 @@ int main()
                 }
             }
 
-                        wdt_disable();
+            wdt_disable();
             timeClient.update();
             syncTime(timeClient);
             timeUpdate = millis();
             wdt_enable(wdtTime);
 
-            uint8_t socketsConnected = 0;
-            for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
-                EthernetClient client(sock);
-                Serial << sock << F(" status ") << client.status() << F(" connected ") << client.connected() << endl;
-                if (client.connected()) {
-                    socketsConnected++;
-                }
-            }
-
             char liveMsg[30] {0};
-            sprintf(liveMsg, "%lu %d %hu", millis(), freeRam(), socketsConnected);
+            sprintf(liveMsg, "%lu", millis());
 		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
-                if (reconnectToMqtt(clientName, mqttClient) != ConnectionStatus::Connected) {
+                if (!connectToMqtt(NODE_NAME, mqttClient)) {
                     reconnectMqttFailed++;
                 } else {
                     reconnectMqttFailed = 0;
@@ -259,23 +263,9 @@ int main()
                 Serial.flush();
                 radio.powerDown();
                 delay(200);
-                resetFunc();
+                // resetFunc();
                 return 1;
             }
-        }
-
-        if (millis() - timeUpdate >= 600000UL) {
-            wdt_disable();
-            timeClient.update();
-            syncTime(timeClient);
-            timeUpdate = millis();
-            wdt_enable(wdtTime);
-            // reset all connections
-            // for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
-                // EthernetClient client(sock);
-                // client.stop();
-            // }
-            // server.begin();
         }
 
         wdt_reset();

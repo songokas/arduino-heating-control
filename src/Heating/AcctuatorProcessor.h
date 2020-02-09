@@ -12,11 +12,6 @@ namespace Heating
 {
     class AcctuatorProcessor
     {
-        private:
-            const Config & config;
-            States zones {};
-            Error errors[Config::MAX_GENERAL_ERRORS] {};
-
         public:
             AcctuatorProcessor(const Config & config);
             
@@ -41,6 +36,10 @@ namespace Heating
 
             bool hasReachedBefore(byte id);
             void saveReached(byte id, bool reached);
+        private:
+            const Config & config;
+            States zones {};
+            Error errors[Config::MAX_GENERAL_ERRORS] {};
     };
 }
 

@@ -20,8 +20,8 @@ const char DEFAULT_JSON[] PROGMEM = "{\"acctuatorWarmupTime\":180,\"heaterPumpSt
 
 bool Storage::loadConfiguration(Config & config) const
 {
-    DynamicJsonBuffer jsonBuffer(Config::MAX_CONFIG_SIZE + 300);
-    char * json = new char[Config::MAX_CONFIG_SIZE + 1] {0};
+    DynamicJsonDocument root(Config::MAX_CONFIG_SIZE + 300);
+    char json[Config::MAX_CONFIG_SIZE + 1] {0};
     if (EEPROM[0] == '{') {
         Serial.println(F("Reading from memory"));
         unsigned int i = 0;
@@ -46,8 +46,8 @@ bool Storage::loadConfiguration(Config & config) const
     Serial.print(F("Load config memory left: "));
     Serial.println(freeRam());
     Serial.println(json);
-    JsonObject& root = jsonBuffer.parseObject(json);
-    if (!root.success()) {
+    auto res = serializeJson(root, json);
+    if (!res) {
         EEPROM.update(0, '0');
         Serial.println(F("Failed to parse config"));
         delete json;
@@ -80,12 +80,12 @@ bool Storage::loadConfiguration(Config & config) const
         config.temperatureDropWait = 0.7;
     }
     int i = 0;
-    JsonArray & zones = root["zones"];
+    JsonArray zones = root["zones"].as<JsonArray>();
     for (auto zone: zones) {
         strlcpy(config.zones[i].name, zone["n"] | "unknown", sizeof(config.zones[i].name));
         config.zones[i].id = zone["id"].as<byte>();
         int j = 0;
-        JsonArray & times = zone["t"];
+        JsonArray times = zone["t"].as<JsonArray>();
         for (auto time: times) {
             config.zones[i].times[j].from = time["f"].as<byte>();
             config.zones[i].times[j].to = time["to"].as<byte>();
@@ -108,7 +108,6 @@ bool Storage::loadConfiguration(Config & config) const
         config.zones[i] = {};
         i++;
     }
-    delete json;
     return true;
 }
 

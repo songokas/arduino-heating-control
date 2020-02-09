@@ -1,5 +1,5 @@
-#include <ArduinoJson.h>
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <Time.h>
 #include <Ethernet.h>
 #include <nRF24L01.h>
@@ -212,8 +212,7 @@ ZoneInfo & AcctuatorProcessor::getAvailableZoneInfoById(byte id)
 // this class should not print 
 void AcctuatorProcessor::printConfig(EthernetClient & client) const
 {
-    StaticJsonBuffer<Config::MAX_CONFIG_SIZE> jsonBuffer;
-    JsonObject & root = jsonBuffer.createObject();
+    StaticJsonDocument<Config::MAX_CONFIG_SIZE> root;
     root["acctuatorWarmupTime"] = config.acctuatorWarmupTime;
     root["heaterPumpStopTime"] = config.heaterPumpStopTime;
     root["constantTemperature"] = config.constantTemperature;
@@ -221,54 +220,50 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
     root["minPwmState"] = config.minPwmState;
     root["minTemperatureDiffForPwm"] = config.minTemperatureDiffForPwm;
     root["temperatureDropWait"] = config.temperatureDropWait;
-    JsonArray & jsonZones = root.createNestedArray("zones");
+    JsonArray jsonZones = root.createNestedArray("zones");
     for (const auto & zone: config.zones) {
         if (zone.name[0] != '\0') {
-            JsonObject & zoneJson = jsonBuffer.createObject();
+            JsonObject zoneJson = jsonZones.createNestedObject();
             zoneJson["n"] = zone.name;
             zoneJson["id"] = zone.id;
-            JsonArray & times = zoneJson.createNestedArray("t");
+            JsonArray times = zoneJson.createNestedArray("t");
             for (const auto & time: zone.times) {
                 if (time.expectedTemperature > 0) {
-                    JsonObject & timejson = jsonBuffer.createObject();
+                    JsonObject timejson = times.createNestedObject();
                     timejson["eT"] = time.expectedTemperature;
                     timejson["f"] = time.from;
                     timejson["to"] = time.to;
-                    times.add(timejson);
                 }
             }
-            jsonZones.add(zoneJson);
         }
     }
-    root.printTo(client);
+    serializeJson(root, client);
 }
 
 void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & heaterInfo, uint8_t networkFailures) const
 {
-    StaticJsonBuffer<Config::MAX_INFO_JSON_SIZE> jsonBuffer;
-    JsonObject & root = jsonBuffer.createObject();
-    JsonObject & system = root.createNestedObject("system");
+    StaticJsonDocument<Config::MAX_INFO_JSON_SIZE> root;
+    JsonObject system = root.createNestedObject("system");
     system["m"] = freeRam();
     system["f"] = networkFailures;
 
 
-    JsonObject & heater = root.createNestedObject("heater");
+    JsonObject heater = root.createNestedObject("heater");
     heater["on"] = heaterInfo.isOn();
     heater["iT"] = heaterInfo.getInitTime();
-    JsonArray & heaterTimes = heater.createNestedArray("t");
+    JsonArray heaterTimes = heater.createNestedArray("t");
     for (const auto & time: heaterInfo.history) {
         if (time.dtOn > 0) {
-            JsonObject & heaterTime = jsonBuffer.createObject();
+            JsonObject heaterTime = heaterTimes.createNestedObject();
             heaterTime["dtOn"] = time.dtOn;
             heaterTime["dtOff"] = time.dtOff;
-            heaterTimes.add(heaterTime);
         }
     }
 
-    JsonArray & jsonZones = root.createNestedArray("zones");
+    JsonArray jsonZones = root.createNestedArray("zones");
     for (const auto & zone: zones) {
         if (zone.pin.id > 0) {
-            JsonObject & zoneJson = jsonBuffer.createObject();
+            JsonObject zoneJson = jsonZones.createNestedObject();
             const ZoneConfig * zoneConfig = getZoneConfigById(zone.pin.id);
             zoneJson["n"] = zoneConfig ? zoneConfig->name : "anonymous";
             zoneJson["pin"] = zone.pin.id;
@@ -276,25 +271,23 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
             zoneJson["cT"] = zone.getCurrentTemperature();
             zoneJson["eT"] = zone.expectedTemperature;
             zoneJson["dtR"] = zone.dtReceived;
-            JsonArray & errors = zoneJson.createNestedArray("er");
+            JsonArray errors = zoneJson.createNestedArray("er");
             for (const auto & error: zone.errors) {
                 if (error != Error::NONE) {
                     errors.add((char)error);
                 }
             }
-            JsonArray & recordedStates = zoneJson.createNestedArray("sT");
+            JsonArray recordedStates = zoneJson.createNestedArray("sT");
             for (const auto & stateTime: zone.stateTimes) {
                 if (stateTime.dtOn > 0) {
-                    JsonObject & jsonTime = jsonBuffer.createObject();
+                    JsonObject jsonTime = recordedStates.createNestedObject();
                     jsonTime["dtOn"] = stateTime.dtOn;
                     jsonTime["dtOff"] = stateTime.dtOff;
-                    recordedStates.add(jsonTime);
                 }
             }
-            jsonZones.add(zoneJson);
         }
     }
-    root.printTo(client);
+    serializeJson(root, client);
 
 }
 

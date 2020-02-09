@@ -30,7 +30,7 @@ namespace Heating
         Serial.println((float)packet.expectedTemperature / 100);
     }
 
-    bool isPinAvailable(byte pin, const byte availablePins [], byte arrayLength)
+    bool isPinAvailable(byte pin, const byte availablePins[], byte arrayLength)
     {
         for (byte i =  0; i < arrayLength; i++) {
             if (availablePins[i] == pin) {

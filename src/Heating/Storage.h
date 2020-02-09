@@ -1,5 +1,5 @@
-#ifndef STORAGE
-#define STORAGE
+#ifndef HEATING_STORAGE_H
+#define HEATING_STORAGE_H
 
 namespace Heating
 {
