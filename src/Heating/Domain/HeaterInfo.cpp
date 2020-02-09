@@ -24,26 +24,30 @@ time_t HeaterInfo::getInitTime() const
 void HeaterInfo::markOn()
 {
     on = true;
-    for (int i = Config::MAX_HEATER_HISTORY - 1; i > 0; i--) {
-        history[i] = history[i - 1];
+
+    for (int i = getHistoryArrLength() - 1; i > 0; i--) {
+        auto & current = getHistory(i);
+        auto & previous = getHistory(i - 1);
+        current = previous;
     }
-    history[0] = {now(), 0};
+    getHistory(0) = {now(), 0};
 }
 
 void HeaterInfo::markOff()
 {
     on = false;
-    if (history[0].dtOn > 0) {
-        history[0].dtOff = now();
+    if (getHistory(0).dtOn > 0) {
+        getHistory(0).dtOff = now();
     }
 }
 
 bool HeaterInfo::isShutingDown(unsigned int pumpStopTime) const
 {
-    return on == false && history[0].dtOff > 0 && (history[0].dtOff + pumpStopTime) > now();
+    auto history = getHistory(0);
+    return on == false && history.dtOff > 0 && (history.dtOff + pumpStopTime) > now();
 }
 
 bool HeaterInfo::isEmptyHistory() const
 {
-    return history[0].dtOn == 0;
+    return getHistory(0).dtOn == 0;
 }

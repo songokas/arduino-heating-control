@@ -44,14 +44,17 @@ using Heating::printTime;
 using Heating::printPacket;
 using Heating::isPinAvailable;
 using Heating::Config;
+using Heating::StaticConfig;
 using Heating::Storage;
 using Heating::TemperatureSensor;
 using Heating::Domain::HeaterInfo;
+using Heating::Domain::StaticHeaterInfo;
 using Heating::Domain::ZoneInfo;
 
 #include "Heating/AcctuatorProcessor.h"
 
 using Heating::AcctuatorProcessor;
+using Heating::StaticAcctuatorProcessor;
 
 using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedRadio;
@@ -61,15 +64,15 @@ using RadioEncrypted::reconnect;
 
 const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
 // mqtt is using c style callback and we require these
-Config config {};
-AcctuatorProcessor processor(config);
+StaticConfig<Config::MAX_ZONES, Config::MAX_ZONE_NAME_LENGTH, Config::MAX_TIMES_PER_ZONE> config {};
+StaticAcctuatorProcessor<Config::MAX_ZONES, Config::MAX_ZONE_TEMPS, Config::MAX_ZONE_STATE_HISTORY, Config::MAX_ZONE_ERRORS> processor(config);
 
 #include "html.h"
 #include "helpers.h"
 
 extern int freeRam ();
 
-// void(* resetFunc) (void) = 0;
+void(* resetFunc) (void) = 0;
 
 int main()
 {
@@ -125,7 +128,7 @@ int main()
     Serial.println();
 
     Storage storage {};
-    HeaterInfo heaterInfo {initTime};
+    StaticHeaterInfo<Config::MAX_HEATER_HISTORY> heaterInfo {initTime};
     storage.loadConfiguration(config);
 
 #ifdef OWN_TEMPERATURE_SENSOR
@@ -165,7 +168,7 @@ int main()
     uint8_t publishFailed = 0;
     uint8_t reconnectMqttFailed = 0;
 
-    auto retrieveCallback = [&mqttClient, &encMesh, &processor, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived, &config]() {
+    auto retrieveCallback = [&mqttClient, &encMesh, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived]() {
         mqttClient.loop();
 
         wdt_reset();
@@ -204,7 +207,8 @@ int main()
             wdt_reset();
 
             if (!heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
-                for (auto &state: processor.getStates()) {
+                for (uint8_t i = 0; i < processor.getStateArrLength(); i++) {
+                    auto & state = processor.getState(i);
                     if (!(state.pin.id > 0)) {
                         continue;
                     }
@@ -263,7 +267,7 @@ int main()
                 Serial.flush();
                 radio.powerDown();
                 delay(200);
-                // resetFunc();
+                resetFunc();
                 return 1;
             }
         }

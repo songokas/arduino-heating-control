@@ -32,11 +32,6 @@ AcctuatorProcessor::AcctuatorProcessor(const Config & c): config(c)
 {
 }
 
-States & AcctuatorProcessor::getStates()
-{
-    return zones;
-}
-
 bool AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio, const HeaterInfo & heaterInfo)
 {
     if (zoneInfo.pin.id > 0) {
@@ -100,7 +95,8 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
 
 void AcctuatorProcessor::handleStates()
 {
-    for (auto & zoneInfo: zones) {
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        ZoneInfo & zoneInfo = getState(i);
         if (!(zoneInfo.pin.id > 0)) {
             continue;
         }
@@ -122,7 +118,8 @@ void AcctuatorProcessor::handleStates()
 
         unsigned long currentHours = hour();
         bool stateSet = false;
-        for (const auto & time: zoneConfig->times) {
+        for (uint8_t j = 0; j < zoneConfig->getTimeArrLength(); i++) {
+            const Time & time = zoneConfig->getTime(j);
             if (currentHours >= time.from && currentHours < time.to) {
                 if (zoneInfo.isWarm(9800) && !zoneInfo.reachedDesired) {
                     zoneInfo.reachedDesired = true;
@@ -165,7 +162,8 @@ void AcctuatorProcessor::setExpectedTemperature(ZoneInfo & zoneInfo, float expec
 
 bool AcctuatorProcessor::isAnyWarmEnough() const
 {
-    for (const auto & zoneInfo: zones) {
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        const ZoneInfo & zoneInfo = getState(i);
         if (zoneInfo.isOn() && zoneInfo.isWarm(config.acctuatorWarmupTime)) {
             return true;
         }
@@ -175,7 +173,8 @@ bool AcctuatorProcessor::isAnyWarmEnough() const
 
 bool AcctuatorProcessor::isAnyEnabled() const
 {
-    for (const auto & zoneInfo: zones) {
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        const ZoneInfo & zoneInfo = getState(i);
         if (zoneInfo.isOn()) {
             return true;
         }
@@ -185,7 +184,8 @@ bool AcctuatorProcessor::isAnyEnabled() const
 
 const ZoneConfig * AcctuatorProcessor::getZoneConfigById(byte id) const
 {
-    for (const auto & zone: config.zones) {
+    for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
+        const ZoneConfig & zone = config.getZone(i);
         if (zone.id == id) {
             return &zone;
         }
@@ -195,18 +195,20 @@ const ZoneConfig * AcctuatorProcessor::getZoneConfigById(byte id) const
 
 ZoneInfo & AcctuatorProcessor::getAvailableZoneInfoById(byte id)
 {
-    for (auto & zone: zones) {
-        if (zone.pin.id == id) {
-            return zone;
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        ZoneInfo & zoneInfo = getState(i);
+        if (zoneInfo.pin.id == id) {
+            return zoneInfo;
         }
     }
-    for (auto & zone: zones) {
-        if (!(zone.pin.id > 0)) {
-            return zone;
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        ZoneInfo & zoneInfo = getState(i);
+        if (!(zoneInfo.pin.id > 0)) {
+            return zoneInfo;
         }
     }
 
-    return zones[Config::MAX_ZONES - 1];
+    return getState(getStateArrLength() - 1);
 }
 
 // this class should not print 
@@ -221,13 +223,15 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
     root["minTemperatureDiffForPwm"] = config.minTemperatureDiffForPwm;
     root["temperatureDropWait"] = config.temperatureDropWait;
     JsonArray jsonZones = root.createNestedArray("zones");
-    for (const auto & zone: config.zones) {
-        if (zone.name[0] != '\0') {
+    for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
+        const ZoneConfig & zone = config.getZone(i);
+        if (zone.getName() != '\0') {
             JsonObject zoneJson = jsonZones.createNestedObject();
-            zoneJson["n"] = zone.name;
+            zoneJson["n"] = zone.getName();
             zoneJson["id"] = zone.id;
             JsonArray times = zoneJson.createNestedArray("t");
-            for (const auto & time: zone.times) {
+            for (uint8_t j = 0; j < zone.getTimeArrLength(); j++) {
+                const Time & time = zone.getTime(j);
                 if (time.expectedTemperature > 0) {
                     JsonObject timejson = times.createNestedObject();
                     timejson["eT"] = time.expectedTemperature;
@@ -252,7 +256,8 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
     heater["on"] = heaterInfo.isOn();
     heater["iT"] = heaterInfo.getInitTime();
     JsonArray heaterTimes = heater.createNestedArray("t");
-    for (const auto & time: heaterInfo.history) {
+    for (uint8_t i = 0; i < heaterInfo.getHistoryArrLength(); i++) {
+        const auto & time = heaterInfo.getHistory(i);
         if (time.dtOn > 0) {
             JsonObject heaterTime = heaterTimes.createNestedObject();
             heaterTime["dtOn"] = time.dtOn;
@@ -261,24 +266,27 @@ void AcctuatorProcessor::printInfo(EthernetClient & client, const HeaterInfo & h
     }
 
     JsonArray jsonZones = root.createNestedArray("zones");
-    for (const auto & zone: zones) {
+    for (uint8_t i = 0; i < getStateArrLength(); i++) {
+        const ZoneInfo & zone = getState(i);
         if (zone.pin.id > 0) {
             JsonObject zoneJson = jsonZones.createNestedObject();
             const ZoneConfig * zoneConfig = getZoneConfigById(zone.pin.id);
-            zoneJson["n"] = zoneConfig ? zoneConfig->name : "anonymous";
+            zoneJson["n"] = zoneConfig ? zoneConfig->getName() : "anonymous";
             zoneJson["pin"] = zone.pin.id;
             zoneJson["st"] = zone.getState();
             zoneJson["cT"] = zone.getCurrentTemperature();
             zoneJson["eT"] = zone.expectedTemperature;
             zoneJson["dtR"] = zone.dtReceived;
             JsonArray errors = zoneJson.createNestedArray("er");
-            for (const auto & error: zone.errors) {
+            for (uint8_t j = 0; j < zone.getErrorArrLength(); j++) {
+                const auto & error = zone.getError(j);
                 if (error != Error::NONE) {
                     errors.add((char)error);
                 }
             }
             JsonArray recordedStates = zoneJson.createNestedArray("sT");
-            for (const auto & stateTime: zone.stateTimes) {
+            for (uint8_t j = 0; j < zone.getStateTimeArrLength(); j++) {
+                const auto & stateTime = zone.getStateTime(j);
                 if (stateTime.dtOn > 0) {
                     JsonObject jsonTime = recordedStates.createNestedObject();
                     jsonTime["dtOn"] = stateTime.dtOn;

@@ -110,12 +110,13 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
             bool success = false;
             char * pos = strstr(requestString, endOfHeaders);
             if (pos) {
-                for (const auto &zone: config.zones) {
+                for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
+                    auto & zone = config.getZone(i);
                     if (!(zone.id > 0)) {
                         continue;
                     }
                     char expectedTopic[MAX_LEN_TOPIC] {0};
-                    snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.name);
+                    snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
 
                     if (strstr(requestString, expectedTopic) > 0) {
                         StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
@@ -285,19 +286,20 @@ bool connectToRadio(RF24 & radio)
     return true;
 }
 
-void mqttCallback(const char * topic, uint8_t * payload, uint16_t len) {
-    
+void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
+{
     Serial << F("Mqtt message received for: ") << topic << endl;
     char message[MAX_LEN_MESSAGE];
     memcpy(message, payload, MIN(len, COUNT_OF(message)));
 
     bool handled = false;
-    for (const auto &zone: config.zones) {
+    for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
+        auto & zone = config.getZone(i);
         if (!(zone.id > 0)) {
             continue;
         }
         char expectedTopic[MAX_LEN_TOPIC] {0};
-        snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.name);
+        snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
         if (strncmp(expectedTopic, topic, COUNT_OF(expectedTopic)) == 0) {
             int16_t value = atoi(message);
             Packet packet { zone.id, value };

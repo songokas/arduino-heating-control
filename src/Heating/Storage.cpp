@@ -50,7 +50,6 @@ bool Storage::loadConfiguration(Config & config) const
     if (!res) {
         EEPROM.update(0, '0');
         Serial.println(F("Failed to parse config"));
-        delete json;
         return false;
     }
     Serial.print(F("Load config memory left: "));
@@ -82,30 +81,34 @@ bool Storage::loadConfiguration(Config & config) const
     int i = 0;
     JsonArray zones = root["zones"].as<JsonArray>();
     for (auto zone: zones) {
-        strlcpy(config.zones[i].name, zone["n"] | "unknown", sizeof(config.zones[i].name));
-        config.zones[i].id = zone["id"].as<byte>();
+        ZoneConfig & zoneConfig = config.getZone(i);
+        zoneConfig.updateName(zone["n"] | "unknown");
+        zoneConfig.id = zone["id"].as<byte>();
         int j = 0;
         JsonArray times = zone["t"].as<JsonArray>();
         for (auto time: times) {
-            config.zones[i].times[j].from = time["f"].as<byte>();
-            config.zones[i].times[j].to = time["to"].as<byte>();
-            config.zones[i].times[j].expectedTemperature = time["eT"].as<float>();
+            Time & zoneTime = zoneConfig.getTime(j);
+            zoneTime.from = time["f"].as<byte>();
+            zoneTime.to = time["to"].as<byte>();
+            zoneTime.expectedTemperature = time["eT"].as<float>();
             j++;
-            if (j >= Config::MAX_ZONE_TEMPS) {
+            if (j >= zoneConfig.getTimeArrLength()) {
                 break;
             }
         }
-        while (j < Config::MAX_ZONE_TEMPS) {
-            config.zones[i].times[j] = {};
+        while (j < zoneConfig.getTimeArrLength()) {
+            Time & zoneTime = zoneConfig.getTime(j);
+            zoneTime = {};
             j++;
         }
         i++;
-        if (i >= Config::MAX_ZONES) {
+        if (i >= config.getZoneArrLength()) {
             break;
         }
     }
-    while (i < Config::MAX_ZONES) {
-        config.zones[i] = {};
+    while (i < config.getZoneArrLength()) {
+        ZoneConfig & zoneConfig = config.getZone(i);
+        zoneConfig = {};
         i++;
     }
     return true;

@@ -12,7 +12,8 @@ float ZoneInfo::getCurrentTemperature() const
 {
     float product = 0;
     byte count = 0;
-    for (auto cT: temps) {
+    for (uint8_t i = 0; i < getTempArrLength(); i++) {
+        float cT = getTemp(i);
         if (cT != 0 && cT > -40 && cT < 60) {
             product += cT;
             count++;
@@ -23,11 +24,11 @@ float ZoneInfo::getCurrentTemperature() const
 
 void ZoneInfo::addTemperature(float currentTemperature)
 {
-    for (int i = Config::MAX_ZONE_TEMPS - 1; i > 0; i--) {
-        temps[i] = temps[i - 1];
-
+    for (uint8_t i = getTempArrLength() - 1; i > 0; i--) {
+        float & current = getTemp(i);
+        current = getTemp(i - 1);
     }
-    temps[0] = currentTemperature;
+    getTemp(0) = currentTemperature;
 }
 
 bool ZoneInfo::isOn() const
@@ -37,7 +38,8 @@ bool ZoneInfo::isOn() const
 
 bool ZoneInfo::isWarm(unsigned int acctuatorWarmupTime) const
 {
-    return isOn() && stateTimes[0].dtOn > 0 && stateTimes[0].dtOff == 0 && (stateTimes[0].dtOn + acctuatorWarmupTime) <= now();
+    auto time = getStateTime(0);
+    return isOn() && time.dtOn > 0 && time.dtOff == 0 && (time.dtOn + acctuatorWarmupTime) <= now();
 }
 
 byte ZoneInfo::getState() const
@@ -52,24 +54,25 @@ byte ZoneInfo::getPwmState() const
 
 void ZoneInfo::recordState(byte state)
 {
-    if (state > 0 && stateTimes[0].dtOn > 0 && stateTimes[0].dtOff == 0) {
+    if (state > 0 && getStateTime(0).dtOn > 0 && getStateTime(0).dtOff == 0) {
         return;
     } else if (state == 0) {
-        if (stateTimes[0].dtOff == 0) {
-            stateTimes[0].dtOff = now();
+        if (getStateTime(0).dtOff == 0) {
+            getStateTime(0).dtOff = now();
         }
         return;
     }
-    for (int i = Config::MAX_ZONE_STATE_HISTORY - 1; i > 0; i--) {
-        stateTimes[i] = stateTimes[i - 1];
+    for (int i = getStateTimeArrLength() - 1; i > 0; i--) {
+        getStateTime(i) = getStateTime(i - 1);
 
     }
-    stateTimes[0] = {now(), 0};
+    getStateTime(0) = {now(), 0};
 }
 
 void ZoneInfo::addError(Error error)
 {
-    for (auto & e: errors) {
+    for (uint8_t i = 0; i < getErrorArrLength(); i++) {
+        Error & e = getError(i);
         if (e == Error::NONE || e == error) {
             e = error;
             break;
@@ -79,7 +82,8 @@ void ZoneInfo::addError(Error error)
 
 void ZoneInfo::removeError(Error error)
 {
-    for (auto & e: errors) {
+    for (uint8_t i = 0; i < getErrorArrLength(); i++) {
+        Error & e = getError(i);
         if (e == error) {
             e = Error::NONE;
             break;
