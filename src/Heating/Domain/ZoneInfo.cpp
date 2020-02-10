@@ -26,9 +26,11 @@ void ZoneInfo::addTemperature(float currentTemperature)
 {
     for (uint8_t i = getTempArrLength() - 1; i > 0; i--) {
         float & current = getTemp(i);
-        current = getTemp(i - 1);
+        float previous = getTemp(i - 1);
+        current = previous;
     }
-    getTemp(0) = currentTemperature;
+    float & current = getTemp(0);
+    current = currentTemperature;
 }
 
 bool ZoneInfo::isOn() const
@@ -38,7 +40,7 @@ bool ZoneInfo::isOn() const
 
 bool ZoneInfo::isWarm(unsigned int acctuatorWarmupTime) const
 {
-    auto time = getStateTime(0);
+    OnOffTime time = getStateTime(0);
     return isOn() && time.dtOn > 0 && time.dtOff == 0 && (time.dtOn + acctuatorWarmupTime) <= now();
 }
 
@@ -54,19 +56,23 @@ byte ZoneInfo::getPwmState() const
 
 void ZoneInfo::recordState(byte state)
 {
-    if (state > 0 && getStateTime(0).dtOn > 0 && getStateTime(0).dtOff == 0) {
+    OnOffTime & time = getStateTime(0);
+    if (state > 0 && time.dtOn > 0 && time.dtOff == 0) {
         return;
     } else if (state == 0) {
-        if (getStateTime(0).dtOff == 0) {
-            getStateTime(0).dtOff = now();
+        if (time.dtOff == 0) {
+            time.dtOff = now();
         }
         return;
     }
     for (int i = getStateTimeArrLength() - 1; i > 0; i--) {
-        getStateTime(i) = getStateTime(i - 1);
+        OnOffTime & current = getStateTime(i);
+        OnOffTime previous = getStateTime(i - 1);
+        current = previous;
 
     }
-    getStateTime(0) = {now(), 0};
+    OnOffTime & current = getStateTime(0);
+    current = {now(), 0};
 }
 
 void ZoneInfo::addError(Error error)

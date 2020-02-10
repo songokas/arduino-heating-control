@@ -7,7 +7,7 @@
 #include "Heating/Config.h"
 #include "Heating/Domain/ZoneInfo.h"
 
-using Heating::Domain::ZoneInfo;
+using Heating::Domain::StaticZoneInfo;
 using Heating::Config;
 using Heating::Error;
 
@@ -17,49 +17,49 @@ SCENARIO( "recording zone states", "[zone]" ) {
 
         initialize_mock_arduino();
         setTime(100);
-        ZoneInfo zone;
+        StaticZoneInfo<4, 4, 3> zone;
 
-        REQUIRE( zone.stateTimes[0].dtOn == 0 );
+        REQUIRE( zone.getStateTime(0).dtOn == 0 );
 
         WHEN( "zone records valid state" ) {
 
             zone.recordState(100);
             
             THEN( "on should be recorded" ) {
-                REQUIRE( zone.stateTimes[0].dtOn > 0 );
-                REQUIRE( zone.stateTimes[0].dtOff == 0 );
-                REQUIRE( zone.stateTimes[1].dtOn == 0 );
-                REQUIRE( zone.stateTimes[1].dtOff == 0 );
+                REQUIRE( zone.getStateTime(0).dtOn > 0 );
+                REQUIRE( zone.getStateTime(0).dtOff == 0 );
+                REQUIRE( zone.getStateTime(1).dtOn == 0 );
+                REQUIRE( zone.getStateTime(1).dtOff == 0 );
 
                 WHEN( "zone records invalid state" ) {
 
                     zone.recordState(0);
 
                     THEN( "off should be recorded" ) {
-                        REQUIRE( zone.stateTimes[0].dtOn > 0 );
-                        REQUIRE( zone.stateTimes[0].dtOff > 0 );
-                        REQUIRE( zone.stateTimes[1].dtOn == 0 );
-                        REQUIRE( zone.stateTimes[1].dtOff == 0 );
+                        REQUIRE( zone.getStateTime(0).dtOn > 0 );
+                        REQUIRE( zone.getStateTime(0).dtOff > 0 );
+                        REQUIRE( zone.getStateTime(1).dtOn == 0 );
+                        REQUIRE( zone.getStateTime(1).dtOff == 0 );
 
                         WHEN( "zone again records valid state" ) {
 
                             zone.recordState(100);
                             
                             THEN( "new on should be recorded" ) {
-                                REQUIRE( zone.stateTimes[0].dtOn > 0 );
-                                REQUIRE( zone.stateTimes[0].dtOff == 0 );
-                                REQUIRE( zone.stateTimes[1].dtOn > 0 );
-                                REQUIRE( zone.stateTimes[1].dtOff > 0 );
+                                REQUIRE( zone.getStateTime(0).dtOn > 0 );
+                                REQUIRE( zone.getStateTime(0).dtOff == 0 );
+                                REQUIRE( zone.getStateTime(1).dtOn > 0 );
+                                REQUIRE( zone.getStateTime(1).dtOff > 0 );
 
                                 WHEN( "zone again records invalid state" ) {
 
                                     zone.recordState(0);
 
                                     THEN( "new off should be recorded" ) {
-                                        REQUIRE( zone.stateTimes[0].dtOn > 0 );
-                                        REQUIRE( zone.stateTimes[0].dtOff > 0 );
-                                        REQUIRE( zone.stateTimes[1].dtOn > 0 );
-                                        REQUIRE( zone.stateTimes[1].dtOff > 0 );
+                                        REQUIRE( zone.getStateTime(0).dtOn > 0 );
+                                        REQUIRE( zone.getStateTime(0).dtOff > 0 );
+                                        REQUIRE( zone.getStateTime(1).dtOn > 0 );
+                                        REQUIRE( zone.getStateTime(1).dtOff > 0 );
                                     }
                                 }
                             }
@@ -75,10 +75,10 @@ SCENARIO( "recording zone states", "[zone]" ) {
             zone.recordState(100);
 
             THEN( "same time is created" ) {
-                REQUIRE( zone.stateTimes[0].dtOn > 0 );
-                REQUIRE( zone.stateTimes[0].dtOff == 0 );
-                REQUIRE( zone.stateTimes[1].dtOn == 0 );
-                REQUIRE( zone.stateTimes[1].dtOff == 0 );
+                REQUIRE( zone.getStateTime(0).dtOn > 0 );
+                REQUIRE( zone.getStateTime(0).dtOff == 0 );
+                REQUIRE( zone.getStateTime(1).dtOn == 0 );
+                REQUIRE( zone.getStateTime(1).dtOff == 0 );
             }
         }
 
@@ -88,10 +88,10 @@ SCENARIO( "recording zone states", "[zone]" ) {
             zone.recordState(0);
 
             THEN( "same time is created" ) {
-                REQUIRE( zone.stateTimes[0].dtOn == 0 );
-                REQUIRE( zone.stateTimes[0].dtOff > 0 );
-                REQUIRE( zone.stateTimes[1].dtOn == 0 );
-                REQUIRE( zone.stateTimes[1].dtOff == 0 );
+                REQUIRE( zone.getStateTime(0).dtOn == 0 );
+                REQUIRE( zone.getStateTime(0).dtOff > 0 );
+                REQUIRE( zone.getStateTime(1).dtOn == 0 );
+                REQUIRE( zone.getStateTime(1).dtOff == 0 );
             }
         }
 

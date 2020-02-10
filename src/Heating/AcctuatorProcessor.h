@@ -54,7 +54,7 @@ namespace Heating
            const ZoneInfo & getState(uint8_t i) const { return i >= maxZones ? zones[maxZones - 1] : zones[i]; }
            uint8_t getStateArrLength() const { return maxZones; };
         private:
-            StaticZoneInfo<maxTemps, maxHistory, maxZoneErrors> zones[maxZones];
+            StaticZoneInfo<maxTemps, maxHistory, maxZoneErrors> zones[maxZones] {};
     };
 }
 

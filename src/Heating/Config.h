@@ -5,9 +5,9 @@ namespace Heating
 {
 
     struct Time {
-        float expectedTemperature;
-        uint8_t from;
-        uint8_t to;
+        float expectedTemperature {0};
+        uint8_t from {0};
+        uint8_t to {0};
     };
 
     struct ZoneConfig
@@ -30,8 +30,8 @@ namespace Heating
         uint8_t getTimeArrLength() const { return maxTimes; }
         void updateName(const char * newname) { strlcpy(name, newname, sizeof(name)); }
 
-        char name[maxName];
-        Time times[maxTimes]; 
+        char name[maxName] {0};
+        Time times[maxTimes] {}; 
     };
 
     class Config

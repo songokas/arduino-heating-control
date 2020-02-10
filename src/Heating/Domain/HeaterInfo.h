@@ -10,7 +10,6 @@ namespace Heating
             public:
                 HeaterInfo() = default;
                 HeaterInfo(time_t initTime);
-                //OnOffTime history[Config::MAX_HEATER_HISTORY] {};
                 bool isOn() const;
                 time_t getInitTime() const;
                 bool isEmptyHistory() const;
@@ -30,6 +29,7 @@ namespace Heating
         class StaticHeaterInfo: public HeaterInfo
         {
             public:
+                StaticHeaterInfo(): HeaterInfo() {}
                 StaticHeaterInfo(time_t initTime): HeaterInfo(initTime) {}
 
                 OnOffTime & getHistory(uint8_t i) { return i >= maxHistory  ? history[maxHistory - 1] : history[i]; }
@@ -37,7 +37,7 @@ namespace Heating
 
                 uint8_t getHistoryArrLength() const { return maxHistory; }
             private:
-                OnOffTime history[maxHistory]; 
+                OnOffTime history[maxHistory] {}; 
         };
     }
 }

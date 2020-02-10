@@ -26,11 +26,12 @@ void HeaterInfo::markOn()
     on = true;
 
     for (int i = getHistoryArrLength() - 1; i > 0; i--) {
-        auto & current = getHistory(i);
-        auto & previous = getHistory(i - 1);
+        OnOffTime & current = getHistory(i);
+        OnOffTime previous = getHistory(i - 1);
         current = previous;
     }
-    getHistory(0) = {now(), 0};
+    OnOffTime & current = getHistory(0);
+    current = {now(), 0};
 }
 
 void HeaterInfo::markOff()
@@ -43,7 +44,7 @@ void HeaterInfo::markOff()
 
 bool HeaterInfo::isShutingDown(unsigned int pumpStopTime) const
 {
-    auto history = getHistory(0);
+    OnOffTime history = getHistory(0);
     return on == false && history.dtOff > 0 && (history.dtOff + pumpStopTime) > now();
 }
 

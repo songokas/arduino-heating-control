@@ -6,7 +6,7 @@
 #include "Heating/Config.h"
 #include "Heating/Domain/HeaterInfo.h"
 
-using Heating::Domain::HeaterInfo;
+using Heating::Domain::StaticHeaterInfo;
 
 SCENARIO( "heater state changes", "[heater]" ) {
 
@@ -14,7 +14,7 @@ SCENARIO( "heater state changes", "[heater]" ) {
 
         initialize_mock_arduino();
         setTime(100);
-        HeaterInfo heater;
+        StaticHeaterInfo<4> heater;
         
         REQUIRE( heater.isEmptyHistory() == true );
         
@@ -24,10 +24,11 @@ SCENARIO( "heater state changes", "[heater]" ) {
             
             THEN( "it should be on" ) {
                 REQUIRE( heater.isOn() == true );
-                REQUIRE( heater.history[0].dtOn > 0 );
-                REQUIRE( heater.history[0].dtOff == 0 );
-                REQUIRE( heater.history[1].dtOn == 0 );
-                REQUIRE( heater.history[2].dtOn == 0 );
+                
+                REQUIRE( heater.getHistory(0).dtOn > 0 );
+                REQUIRE( heater.getHistory(0).dtOff == 0 );
+                REQUIRE( heater.getHistory(1).dtOn == 0 );
+                REQUIRE( heater.getHistory(2).dtOn == 0 );
 
                 WHEN( "heater state changes to off" ) {
 
@@ -35,10 +36,10 @@ SCENARIO( "heater state changes", "[heater]" ) {
 
                     THEN( "it should be off" ) {
                         REQUIRE( heater.isOn() == false );
-                        REQUIRE( heater.history[0].dtOn > 0 );
-                        REQUIRE( heater.history[0].dtOff > 0 );
-                        REQUIRE( heater.history[1].dtOn == 0 );
-                        REQUIRE( heater.history[2].dtOn == 0 );
+                        REQUIRE( heater.getHistory(0).dtOn > 0 );
+                        REQUIRE( heater.getHistory(0).dtOff > 0 );
+                        REQUIRE( heater.getHistory(1).dtOn == 0 );
+                        REQUIRE( heater.getHistory(2).dtOn == 0 );
 
                         WHEN( "heater state changes to on" ) {
                             
@@ -46,11 +47,11 @@ SCENARIO( "heater state changes", "[heater]" ) {
                             
                             THEN( "it should be on" ) {
                                 REQUIRE( heater.isOn() == true );
-                                REQUIRE( heater.history[0].dtOn > 0 );
-                                REQUIRE( heater.history[0].dtOff == 0 );
-                                REQUIRE( heater.history[1].dtOn > 0 );
-                                REQUIRE( heater.history[1].dtOff > 0 );
-                                REQUIRE( heater.history[2].dtOn == 0 );
+                                REQUIRE( heater.getHistory(0).dtOn > 0 );
+                                REQUIRE( heater.getHistory(0).dtOff == 0 );
+                                REQUIRE( heater.getHistory(1).dtOn > 0 );
+                                REQUIRE( heater.getHistory(1).dtOff > 0 );
+                                REQUIRE( heater.getHistory(2).dtOn == 0 );
 
                                 WHEN( "heater state changes to off" ) {
 
@@ -58,11 +59,11 @@ SCENARIO( "heater state changes", "[heater]" ) {
 
                                     THEN( "it should be off" ) {
                                         REQUIRE( heater.isOn() == false );
-                                        REQUIRE( heater.history[0].dtOn > 0 );
-                                        REQUIRE( heater.history[0].dtOff > 0 );
-                                        REQUIRE( heater.history[1].dtOn > 0 );
-                                        REQUIRE( heater.history[1].dtOff > 0 );
-                                        REQUIRE( heater.history[2].dtOn == 0 );
+                                        REQUIRE( heater.getHistory(0).dtOn > 0 );
+                                        REQUIRE( heater.getHistory(0).dtOff > 0 );
+                                        REQUIRE( heater.getHistory(1).dtOn > 0 );
+                                        REQUIRE( heater.getHistory(1).dtOff > 0 );
+                                        REQUIRE( heater.getHistory(2).dtOn == 0 );
                                     }
                                 }
                             }
@@ -77,8 +78,8 @@ SCENARIO( "heater state changes", "[heater]" ) {
             
             THEN( "heater state chages and time is recorded" ) {
                 REQUIRE( heater.isOn() == false );
-                REQUIRE( heater.history[0].dtOn == 0 );
-                REQUIRE( heater.history[0].dtOff == 0 );
+                REQUIRE( heater.getHistory(0).dtOn == 0 );
+                REQUIRE( heater.getHistory(0).dtOff == 0 );
             }
         }
     }

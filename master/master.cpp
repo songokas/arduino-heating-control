@@ -177,6 +177,7 @@ int main()
         }
         EthernetClient client = server.available();
         bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures, config);
+        wdt_reset();
         if (configUpdated) {
             storage.loadConfiguration(config);
         }
@@ -189,6 +190,8 @@ int main()
         unsigned long timeToSend = random(1000, 10000) + 60000UL;
 
         if (millis() - handleTime >= timeToSend) {
+
+            Serial << F("Time to send") << endl;
 
             wdt_reset();
 

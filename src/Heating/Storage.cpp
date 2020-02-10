@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <Time.h>
+#include <Streaming.h>
 #include "Common.h"
 #include "Config.h"
 #include "Storage.h"
@@ -21,7 +22,7 @@ const char DEFAULT_JSON[] PROGMEM = "{\"acctuatorWarmupTime\":180,\"heaterPumpSt
 bool Storage::loadConfiguration(Config & config) const
 {
     DynamicJsonDocument root(Config::MAX_CONFIG_SIZE + 300);
-    char json[Config::MAX_CONFIG_SIZE + 1] {0};
+    char * json = new char[Config::MAX_CONFIG_SIZE + 1] {0};
     if (EEPROM[0] == '{') {
         Serial.println(F("Reading from memory"));
         unsigned int i = 0;
@@ -43,16 +44,17 @@ bool Storage::loadConfiguration(Config & config) const
         }
         json[i] = '\0';
     }
-    Serial.print(F("Load config memory left: "));
+
+    Serial.print(F("Deserialize config memory left: "));
     Serial.println(freeRam());
-    Serial.println(json);
-    auto res = serializeJson(root, json);
-    if (!res) {
+    auto error = deserializeJson(root, json, Config::MAX_CONFIG_SIZE + 1);
+    if (error) {
+        delete json;
         EEPROM.update(0, '0');
-        Serial.println(F("Failed to parse config"));
+        Serial << F("failed to parse config: ") << error.c_str() << endl;
         return false;
     }
-    Serial.print(F("Load config memory left: "));
+    Serial.print(F("Deserialized finished config memory left: "));
     Serial.println(freeRam());
 
     config.acctuatorWarmupTime = root["acctuatorWarmupTime"].as<unsigned int>();
@@ -84,6 +86,7 @@ bool Storage::loadConfiguration(Config & config) const
         ZoneConfig & zoneConfig = config.getZone(i);
         zoneConfig.updateName(zone["n"] | "unknown");
         zoneConfig.id = zone["id"].as<byte>();
+
         int j = 0;
         JsonArray times = zone["t"].as<JsonArray>();
         for (auto time: times) {
@@ -111,6 +114,7 @@ bool Storage::loadConfiguration(Config & config) const
         zoneConfig = {};
         i++;
     }
+    delete json;
     return true;
 }
 

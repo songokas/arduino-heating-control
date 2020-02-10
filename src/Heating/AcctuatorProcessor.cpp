@@ -83,9 +83,6 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
     ZoneInfo & zoneInfo = getAvailableZoneInfoById(packet.id);
     if (!(zoneInfo.pin.id > 0)) {
         zoneInfo.pin.id = packet.id;
-        //if (hasReachedBefore(packet.id)) {
-        //    zoneInfo.reachedDesired = true;
-        //}
     }
     zoneInfo.addTemperature(currentTemperature);
     zoneInfo.dtReceived = now();
@@ -118,7 +115,7 @@ void AcctuatorProcessor::handleStates()
 
         unsigned long currentHours = hour();
         bool stateSet = false;
-        for (uint8_t j = 0; j < zoneConfig->getTimeArrLength(); i++) {
+        for (uint8_t j = 0; j < zoneConfig->getTimeArrLength(); j++) {
             const Time & time = zoneConfig->getTime(j);
             if (currentHours >= time.from && currentHours < time.to) {
                 if (zoneInfo.isWarm(9800) && !zoneInfo.reachedDesired) {
@@ -225,7 +222,7 @@ void AcctuatorProcessor::printConfig(EthernetClient & client) const
     JsonArray jsonZones = root.createNestedArray("zones");
     for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
         const ZoneConfig & zone = config.getZone(i);
-        if (zone.getName() != '\0') {
+        if (zone.id > 0) {
             JsonObject zoneJson = jsonZones.createNestedObject();
             zoneJson["n"] = zone.getName();
             zoneJson["id"] = zone.id;

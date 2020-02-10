@@ -85,13 +85,40 @@ bool retrieveJson(JsonDocument & doc, const char * content)
     return false;
 }
 
+bool handleJson(AcctuatorProcessor & manager, const char * requestString, const char * pos)
+{
+    for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
+        wdt_reset();
+        auto & zone = config.getZone(i);
+        if (!(zone.id > 0)) {
+            continue;
+        }
+        char expectedTopic[MAX_LEN_TOPIC] {0};
+        snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
+
+        if (strstr(requestString, expectedTopic) > 0) {
+            StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
+            if (retrieveJson(doc, pos + 4)) {
+                if (doc["temperature"].is<int16_t>()) {
+                    Packet packet {zone.id, doc["temperature"]};
+                    return handlePacket(manager, packet);
+                } else {
+                    Serial << F("Invalid json structure") << endl;
+                }
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
 bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures, const Config & config)
 {
     bool configUpdated = false;
     char endOfHeaders[] = "\r\n\r\n";
     if (client) {
         unsigned int i = 0;
-        char requestString[Config::MAX_REQUEST_SIZE + 1] {};
+        char * requestString = new char[Config::MAX_REQUEST_SIZE + 1] {};
         while (client.available() && i < Config::MAX_REQUEST_SIZE) {
             requestString[i] = client.read();
             i++;
@@ -110,27 +137,7 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
             bool success = false;
             char * pos = strstr(requestString, endOfHeaders);
             if (pos) {
-                for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
-                    auto & zone = config.getZone(i);
-                    if (!(zone.id > 0)) {
-                        continue;
-                    }
-                    char expectedTopic[MAX_LEN_TOPIC] {0};
-                    snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
-
-                    if (strstr(requestString, expectedTopic) > 0) {
-                        StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
-                        if (retrieveJson(doc, pos + 4)) {
-                            if (doc["temperature"].is<int16_t>()) {
-                                Packet packet {zone.id, doc["temperature"]};
-                                success = handlePacket(manager, packet);
-                            } else {
-                                Serial << F("Invalid json structure") << endl;
-                            }
-                        }
-                        break;
-                    }
-                }
+                success = handleJson(manager, requestString, pos);
             }
             sendJson(client, success);
 
@@ -151,6 +158,7 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
             sendHtml(client, manager, heaterInfo, networkFailures);
 
         }
+        delete requestString;
         delay(10);
         client.stop();
         delay(10);
@@ -244,7 +252,6 @@ bool maintainDhcp() {
 }
 
 bool connectToMqtt(const char * clientName, PubSubClient & client) {
-    // Loop until we're reconnected
     if (!client.connected()) {
         wdt_reset();
         Serial << F("Attempting MQTT connection...");
