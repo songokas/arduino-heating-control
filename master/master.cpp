@@ -13,7 +13,14 @@
 #include <DallasTemperature.h>
 #include <Time.h>
 #include <PubSubClient.h>
+
+#ifdef NTP_TIME
 #include <NTPClient.h>
+#else
+#include <ThreeWire.h>  
+#include <RtcDS1302.h>
+//#include <RtcDS3231.h>
+#endif
 
 // required by arduino-mk to include it when compiling storage
 #include <Wire.h>
@@ -63,16 +70,18 @@ using RadioEncrypted::Entropy::AnalogSignalEntropy;
 using RadioEncrypted::reconnect;
 
 const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
+const char * SUBSCRIBE_TOPIC = "heating/nodes/#";
+
 // mqtt is using c style callback and we require these
 StaticConfig<Config::MAX_ZONES, Config::MAX_ZONE_NAME_LENGTH, Config::MAX_TIMES_PER_ZONE> config {};
 StaticAcctuatorProcessor<Config::MAX_ZONES, Config::MAX_ZONE_TEMPS, Config::MAX_ZONE_STATE_HISTORY, Config::MAX_ZONE_ERRORS> processor(config);
 
-#include "html.h"
-#include "helpers.h"
-
 extern int freeRam ();
 
 void(* resetFunc) (void) = 0;
+
+#include "html.h"
+#include "helpers.h"
 
 int main()
 {
@@ -82,11 +91,17 @@ int main()
 
     uint8_t wdtTime = WDTO_8S;
 
+    // spi
+    //pinMode(4,OUTPUT);
+    //digitalWrite(4,HIGH);
+
     // heater off
     pinMode(Config::PIN_HEATING, OUTPUT);
     digitalWrite(Config::PIN_HEATING, HIGH);
 
-    Serial.begin(Config::SERIAL_RATE); 
+    Serial.begin(Config::SERIAL_RATE);
+
+    Serial << F("Begin memory left:") << freeRam() << endl;
 
     RF24 radio(Config::PIN_RADIO_CE, Config::PIN_RADIO_CSN);
 
@@ -113,14 +128,8 @@ int main()
     EthernetServer server(80);
     server.begin();
 
+    updateTime();
     wdt_reset();
-
-    EthernetUDP udpConnection;
-    NTPClient timeClient(udpConnection);
-
-    timeClient.begin();
-    timeClient.update();
-    syncTime(timeClient);
 
     time_t initTime = now();
     Serial.print(F("current time: "));
@@ -147,18 +156,24 @@ int main()
 
     uint16_t mqttAttempts = 0;
     mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
-    while (!mqttClient.connect(NODE_NAME) && mqttAttempts < 10) {
+    while (!mqttClient.connect(NODE_NAME) && mqttAttempts < 6) {
         mqttAttempts++;
         Serial.print(".");
         delay(500 * mqttAttempts);
         wdt_reset();
     }
-    if (mqttAttempts >= 10) {
+    if (mqttAttempts >= 6) {
         Serial << F("failed to connect.") << endl;
     } else {
         Serial << F("connected.") << endl;
+        if (mqttClient.subscribe(SUBSCRIBE_TOPIC)) {
+            Serial << F("Subscribed to: ") << SUBSCRIBE_TOPIC << endl;
+        } else {
+            Serial << F("Failed to subscribe to: ") << SUBSCRIBE_TOPIC << endl;
+        }
     }
     mqttClient.setCallback(mqttCallback);
+
 
     unsigned long handleTime = 0;
     unsigned long timeUpdate = 0;
@@ -228,17 +243,18 @@ int main()
                 }
             }
 
-            wdt_disable();
-            timeClient.update();
-            syncTime(timeClient);
-            timeUpdate = millis();
-            wdt_enable(wdtTime);
 
-            char liveMsg[30] {0};
+            wdt_reset();
+
+            char topic[MAX_LEN_TOPIC] {0};
+            snprintf_P(topic, COUNT_OF(topic), CHANNEL_KEEP_ALIVE);
+
+            char liveMsg[16] {0};
             sprintf(liveMsg, "%lu", millis());
-		    if (!mqttClient.publish(CHANNEL_KEEP_ALIVE, liveMsg)) {
+            Serial << F("Mqtt send ") << topic << F(" ") << liveMsg << endl;
+		    if (!mqttClient.publish(topic, liveMsg)) {
                 Serial << F("Failed to send keep alive") << endl;
-                if (!connectToMqtt(NODE_NAME, mqttClient)) {
+                if (!connectToMqtt(NODE_NAME, mqttClient, SUBSCRIBE_TOPIC)) {
                     reconnectMqttFailed++;
                 } else {
                     reconnectMqttFailed = 0;
@@ -248,9 +264,8 @@ int main()
                 publishFailed = 0;
             }
 
-            Serial.print(F("Memory left:"));
-            Serial.println(freeRam());
-            handleTime = millis();
+            wdt_reset();
+
 
             if (!maintainDhcp()) {
                 networkFailures++;
@@ -258,21 +273,39 @@ int main()
                 networkFailures = 0;
             }
 
+            wdt_reset();
+
             if (radio.failureDetected) {
                 radio.failureDetected = 0;
                 connectToRadio(radio);
             }
 
+            checkSockStatus(server);
+
+            wdt_reset();
+
             bool receiveFailure = millis() - lastRadioReceived > 1800000UL;
 
             if (receiveFailure) {
-                Serial << F("Resetting") << endl;
+                Serial << F("Reset") << endl;
                 Serial.flush();
                 radio.powerDown();
                 delay(200);
                 resetFunc();
                 return 1;
             }
+
+            wdt_reset();
+
+            Serial << F("Memory left:") << freeRam() << endl;
+
+            handleTime = millis();
+        }
+
+        if (millis() - timeUpdate >= 3600000UL) {
+            updateTime();
+            wdt_reset();
+            timeUpdate = millis();
         }
 
         wdt_reset();

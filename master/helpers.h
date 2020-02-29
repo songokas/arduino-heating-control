@@ -31,6 +31,7 @@ void sendHtml(EthernetClient & client, const AcctuatorProcessor & manager, const
     client.println(F("Content-Type: text/html"));
     client.println(F("Connection: close"));  // the connection will be closed after completion of the response
     client.println();
+    //client.println(F("OK"));
     printWebsite(client, manager, heaterInfo, networkFailures);
 }
 
@@ -41,7 +42,6 @@ void sendNotFound(EthernetClient & client)
     client.println(F("Connection: close"));  // the connection will be closed after completion of the response
     client.println();
     client.println(F("NOT FOUND"));
-
 }
 
 void sendJson(EthernetClient & client, bool ok)
@@ -115,8 +115,11 @@ bool handleJson(AcctuatorProcessor & manager, const char * requestString, const 
 bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures, const Config & config)
 {
     bool configUpdated = false;
-    char endOfHeaders[] = "\r\n\r\n";
     if (client) {
+        char endOfHeaders[] = "\r\n\r\n";
+
+        Serial << F("Handle request memory left:") << freeRam() << endl;
+
         unsigned int i = 0;
         char * requestString = new char[Config::MAX_REQUEST_SIZE + 1] {};
         while (client.available() && i < Config::MAX_REQUEST_SIZE) {
@@ -201,12 +204,8 @@ void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)
     }
 }
 
-bool syncTime(NTPClient & client)
+bool syncTimeZoneTime(unsigned long utc)
 {
-    unsigned long utc = client.getEpochTime();
-    if (utc == 0) {
-        return false;
-    }
     TimeChangeRule eestSummer = {"EESTS", Last, Sun, Mar, 3, 180};  //UTC + 3 hours
     TimeChangeRule eestWinter = {"EESTW", Last, Sun, Oct, 4, 120};   //UTC + 2 hours
     Timezone eestZone(eestSummer, eestWinter);
@@ -214,6 +213,7 @@ bool syncTime(NTPClient & client)
     setTime(localTime);
     return true;
 }
+
 
 bool maintainDhcp() {
 
@@ -251,12 +251,15 @@ bool maintainDhcp() {
   return true;
 }
 
-bool connectToMqtt(const char * clientName, PubSubClient & client) {
+bool connectToMqtt(const char * clientName, PubSubClient & client, const char * subscribeTopic) {
     if (!client.connected()) {
         wdt_reset();
         Serial << F("Attempting MQTT connection...");
         if (client.connect(clientName)) {
             Serial << F("Mqtt connected") << endl;
+            if (!client.subscribe(subscribeTopic)) {
+                Serial << F("Failed to subscribe to: ") << subscribeTopic << endl;
+            }
             return true;
 
         } else {
@@ -307,7 +310,7 @@ void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
         }
         char expectedTopic[MAX_LEN_TOPIC] {0};
         snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
-        if (strncmp(expectedTopic, topic, COUNT_OF(expectedTopic)) == 0) {
+        if (strncmp(expectedTopic, topic, strlen(expectedTopic)) == 0) {
             int16_t value = atoi(message);
             Packet packet { zone.id, value };
             handled = handlePacket(processor, packet);
@@ -318,4 +321,96 @@ void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
     if (!handled) {
         Serial << "Not handled: " << topic << endl; 
     }
+}
+
+#ifdef NTP_TIME
+
+bool syncTime(NTPClient & client)
+{
+    unsigned long utc = client.getEpochTime();
+    if (utc == 0) {
+        return false;
+    }
+    return syncTimeZoneTime(utc);
+}
+
+#else
+
+void rtcSetup(RtcDS1302<ThreeWire> & rtc)
+{
+    rtc.Begin();
+
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+
+    if (!rtc.IsDateTimeValid()) {
+        //if (rtc.LastError() != 0) {
+        //    Serial << F("RTC communications error = ") << rtc.LastError() << endl;
+        //} else {
+            Serial << F("RTC lost confidence in the DateTime!") << endl;
+            rtc.SetDateTime(compiled);
+        //}
+    }
+
+    if (!rtc.GetIsRunning()) {
+        Serial << F("RTC starting") << endl;
+        rtc.SetIsRunning(true);
+    }
+
+    RtcDateTime now = rtc.GetDateTime();
+    if (now < compiled) {
+        Serial << F("RTC update with compile time") << endl;;
+        rtc.SetDateTime(compiled);
+    }
+
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    //rtc.Enable32kHzPin(false);
+    //rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone); 
+}
+
+#endif
+
+void checkSockStatus(EthernetServer & server)
+{
+    for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
+        EthernetClient client(sock);
+        Serial << F("socket status: ") << client.status() << F(" local port: ") << client.localPort() << F(" server port: ") << EthernetServer::server_port[sock] << endl;
+        if (EthernetServer::server_port[sock] == 80) {
+            if (client.status() != 0x14) {
+                Serial << F("Server is not listening. Restarting") << endl;
+                client.stop();
+                server.begin();
+            }
+        } else if (EthernetServer::server_port[sock] > 0) {
+            Serial << F("Server socket is not closed. Closing") << endl;
+            client.stop();
+        }
+    }
+}
+
+void updateTime()
+{
+    #ifdef NTP_TIME
+    EthernetUDP udpConnection;
+    NTPClient timeClient(udpConnection, "europe.pool.ntp.org", 0, 3600000UL);
+    timeClient.begin();
+    bool timeSet = timeClient.update();
+    if (timeSet) {
+        syncTime(timeClient);
+    }
+    // random freeze if udp connection is kept
+    timeClient.end();
+#else
+
+    ThreeWire myWire(10, 9, 11); // DATA, SCLK, RESET
+    RtcDS1302<ThreeWire> rtc(myWire);
+    //RtcDS3231<TwoWire> rtc(myWire);
+    rtcSetup(rtc);
+    if (rtc.IsDateTimeValid()) {
+        RtcDateTime now = rtc.GetDateTime();
+        setTime(now.Epoch32Time());
+    }
+#endif
+
+    wdt_reset();
 }

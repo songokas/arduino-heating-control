@@ -53,12 +53,12 @@ namespace Heating
             static const uint8_t PIN_LED =  4;
             static const uint8_t PIN_BUTTON = 3;
 
-            static const uint8_t MAX_ZONES = 12;
+            static const uint8_t MAX_ZONES = 11;
             static const uint8_t MAX_ZONE_NAME_LENGTH = 20;
             static const uint8_t MAX_ZONE_TEMPS = 5;
             static const uint8_t MAX_ZONE_STATE_HISTORY = 3;
-            static const uint8_t MAX_ZONE_ERRORS = 3;
-            static const uint8_t MAX_TIMES_PER_ZONE = 4;
+            static const uint8_t MAX_ZONE_ERRORS = 1;
+            static const uint8_t MAX_TIMES_PER_ZONE = 3;
 
             static const uint8_t MAX_SLAVE_ACCTUATORS = 12;
             //no packet received in miliseconds
@@ -72,7 +72,7 @@ namespace Heating
             // wait for temperature to drop more than diff
             static constexpr float TEMPERATURE_DROP_WAIT = 0.7;
 
-            static const unsigned int MAX_REQUEST_SIZE = 2000;
+            static const unsigned int MAX_REQUEST_SIZE = 1800;
             static const unsigned int MAX_REQUEST_PRINT_BUFFER = 512;
 
             static const unsigned int MAX_CONFIG_SIZE = 1300;

@@ -4,7 +4,7 @@ ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
 
 USER_LIB_PATH = $(realpath ../arduino-link)
 
-ARDUINO_LIBS = NTPClient PubSubClient Acorn128 ArduinoJson AuthenticatedCipher Cipher Crypto CryptoLW DallasTemperature Ethernet Entropy OneWire RF24 RF24Mesh RF24Network Streaming Time Timezone EEPROM SPI Wire RadioEncrypted Heating Heating/Domain RadioEncrypted/Entropy TimeService
+ARDUINO_LIBS = ThreeWire RtcDS1302 NTPClient PubSubClient Acorn128 ArduinoJson AuthenticatedCipher Cipher Crypto CryptoLW DallasTemperature Ethernet Entropy OneWire RF24 RF24Mesh RF24Network Streaming Time Timezone EEPROM SPI Wire RadioEncrypted Heating Heating/Domain RadioEncrypted/Entropy TimeService
 
 include /usr/share/arduino/Arduino.mk
 
@@ -12,6 +12,6 @@ CURRENT_TIME = $(shell date +%s)
 
 # ENC_KEY must be 16 chars long and same across master, slave, nodes
 # OWN_TEMPERATURE_SENSOR define pin if master has a temperature sensor e.g. -DOWN_TEMPERATURE_SENSOR=34
-CXXFLAGS_STD +=-DNODE_NAME=\"heating/master\" -DMQTT_SERVER_ADDRESS=\"192.168.0.140\" -DFAILURE_HANDLING=1 -DOWN_TEMPERATURE_SENSOR=34 -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
+CXXFLAGS_STD +=-DNTP_TIME=1 DNODE_NAME=\"heating/master\" -DMQTT_SERVER_ADDRESS=\"192.168.0.140\" -DFAILURE_HANDLING=1 -DOWN_TEMPERATURE_SENSOR=34 -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
 MONITOR_PARMS += -L
 

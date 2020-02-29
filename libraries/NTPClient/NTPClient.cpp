@@ -77,9 +77,13 @@ bool NTPClient::forceUpdate() {
     timeout++;
   } while (cb == 0);
 
+  Serial.print("loop end "); Serial.println(millis());
+
   this->_lastUpdate = millis() - (10 * (timeout + 1)); // Account for delay in reading the time
 
   this->_udp->read(this->_packetBuffer, NTP_PACKET_SIZE);
+
+  Serial.print("read end "); Serial.println(millis());
 
   unsigned long highWord = word(this->_packetBuffer[40], this->_packetBuffer[41]);
   unsigned long lowWord = word(this->_packetBuffer[42], this->_packetBuffer[43]);
@@ -169,7 +173,10 @@ void NTPClient::sendNTPPacket() {
 
   // all NTP fields have been given values, now
   // you can send a packet requesting a timestamp:
+  Serial.print("ntp begin "); Serial.println(millis());;
   this->_udp->beginPacket(this->_poolServerName, 123); //NTP requests are to port 123
+  Serial.print("ntp write1 "); Serial.println(millis());
   this->_udp->write(this->_packetBuffer, NTP_PACKET_SIZE);
+  Serial.print("ntp write2 "); Serial.println(millis());
   this->_udp->endPacket();
 }
