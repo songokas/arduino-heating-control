@@ -92,14 +92,14 @@ bool NTPClient::forceUpdate(uint16_t timeout) {
   while(this->_udp->parsePacket() != 0)
     this->_udp->flush();
 
-  this->sendNTPPacket(timeout >= 3000 ? 1500 : 500, 2);
+  this->sendNTPPacket();
 
   // Wait till data is there or timeout...
   int cb = 0;
   do {
     delay ( 10 );
     cb = this->_udp->parsePacket();
-    if (millis() - current > timeout) return false; // timeout after 1000 ms
+    if (cb == 0 && millis() - current > timeout) return false;
   } while (cb == 0);
 
   this->_lastUpdate = millis() - (10 * (timeout + 1)); // Account for delay in reading the time
@@ -177,7 +177,7 @@ void NTPClient::setPoolServerName(const char* poolServerName) {
     this->_poolServerName = poolServerName;
 }
 
-void NTPClient::sendNTPPacket(uint16_t dnsTimeout, uint8_t dnsRetries) {
+void NTPClient::sendNTPPacket() {
   // set all bytes in the buffer to 0
   memset(this->_packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -195,7 +195,7 @@ void NTPClient::sendNTPPacket(uint16_t dnsTimeout, uint8_t dnsRetries) {
   // all NTP fields have been given values, now
   // you can send a packet requesting a timestamp:
   if  (this->_poolServerName) {
-    this->_udp->beginPacket(this->_poolServerName, 123, dnsTimeout, dnsRetries);
+    this->_udp->beginPacket(this->_poolServerName, 123);
   } else {
     this->_udp->beginPacket(this->_poolServerIP, 123);
   }
