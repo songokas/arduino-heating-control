@@ -156,7 +156,7 @@ void listenForEthernetClients() {
   if (client) {
     Serial.println("Got a client");
     // an http request ends with a blank line
-    boolean currentLineIsBlank = true;
+    bool currentLineIsBlank = true;
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
@@ -228,7 +228,7 @@ unsigned int readRegister(byte registerName, int numBytes) {
   // take the chip select low to select the device:
   digitalWrite(chipSelectPin, LOW);
   // send the device the register you want to read:
-  int command = SPI.transfer(registerName);
+  SPI.transfer(registerName);
   // send a value of 0 to read the first byte returned:
   inByte = SPI.transfer(0x00);
 

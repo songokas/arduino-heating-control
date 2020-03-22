@@ -14,17 +14,18 @@ class NTPClient {
     bool          _udpSetup       = false;
 
     const char*   _poolServerName = "pool.ntp.org"; // Default time server
+    IPAddress     _poolServerIP;
     int           _port           = NTP_DEFAULT_LOCAL_PORT;
     long          _timeOffset     = 0;
 
-    unsigned long _updateInterval = 6000000;  // In ms
+    unsigned long _updateInterval = 60000;  // In ms
 
     unsigned long _currentEpoc    = 0;      // In s
     unsigned long _lastUpdate     = 0;      // In ms
 
     byte          _packetBuffer[NTP_PACKET_SIZE];
 
-    void          sendNTPPacket();
+    void          sendNTPPacket(uint16_t dnsTimeout = 2000, uint8_t dnsRetries = 2);
 
   public:
     NTPClient(UDP& udp);
@@ -32,6 +33,9 @@ class NTPClient {
     NTPClient(UDP& udp, const char* poolServerName);
     NTPClient(UDP& udp, const char* poolServerName, long timeOffset);
     NTPClient(UDP& udp, const char* poolServerName, long timeOffset, unsigned long updateInterval);
+    NTPClient(UDP& udp, IPAddress poolServerIP);
+    NTPClient(UDP& udp, IPAddress poolServerIP, long timeOffset);
+    NTPClient(UDP& udp, IPAddress poolServerIP, long timeOffset, unsigned long updateInterval);
 
     /**
      * Set time server name
@@ -56,14 +60,14 @@ class NTPClient {
      *
      * @return true on success, false on failure
      */
-    bool update();
+    bool update(uint16_t timeout = 3000);
 
     /**
      * This will force the update from the NTP Server.
      *
      * @return true on success, false on failure
      */
-    bool forceUpdate();
+    bool forceUpdate(uint16_t timeout = 3000);
 
     int getDay() const;
     int getHours() const;

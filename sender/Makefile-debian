@@ -1,7 +1,8 @@
 BOARD_TAG   = uno
 #BOARD_TAG   = pro
 #BOARD_SUB   = 8MHzatmega328
-ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
+ARDUINO_DIR = $(HOME)/install/arduino-1.8.12
+ARDUINO_CORE_PATH = $(realpath ../libraries/ArduinoCore-avr/cores/arduino)
 
 USER_LIB_PATH=$(realpath ../arduino-link)
 

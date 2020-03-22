@@ -1,6 +1,7 @@
 BOARD_TAG = mega
 BOARD_SUB = atmega2560
-ARDUINO_DIR = $(HOME)/install/arduino-1.8.9
+ARDUINO_DIR = $(HOME)/install/arduino-1.8.12
+ARDUINO_CORE_PATH = $(realpath ../libraries/ArduinoCore-avr/cores/arduino)9
 
 USER_LIB_PATH = $(realpath ../arduino-link)
 

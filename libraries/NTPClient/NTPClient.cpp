@@ -35,16 +35,37 @@ NTPClient::NTPClient(UDP& udp, const char* poolServerName) {
   this->_poolServerName = poolServerName;
 }
 
+NTPClient::NTPClient(UDP& udp, IPAddress poolServerIP) {
+  this->_udp            = &udp;
+  this->_poolServerIP   = poolServerIP;
+  this->_poolServerName = NULL;
+}
+
 NTPClient::NTPClient(UDP& udp, const char* poolServerName, long timeOffset) {
   this->_udp            = &udp;
   this->_timeOffset     = timeOffset;
   this->_poolServerName = poolServerName;
 }
 
+NTPClient::NTPClient(UDP& udp, IPAddress poolServerIP, long timeOffset){
+  this->_udp            = &udp;
+  this->_timeOffset     = timeOffset;
+  this->_poolServerIP   = poolServerIP;
+  this->_poolServerName = NULL;
+}
+
 NTPClient::NTPClient(UDP& udp, const char* poolServerName, long timeOffset, unsigned long updateInterval) {
   this->_udp            = &udp;
   this->_timeOffset     = timeOffset;
   this->_poolServerName = poolServerName;
+  this->_updateInterval = updateInterval;
+}
+
+NTPClient::NTPClient(UDP& udp, IPAddress poolServerIP, long timeOffset, unsigned long updateInterval) {
+  this->_udp            = &udp;
+  this->_timeOffset     = timeOffset;
+  this->_poolServerIP   = poolServerIP;
+  this->_poolServerName = NULL;
   this->_updateInterval = updateInterval;
 }
 
@@ -60,30 +81,30 @@ void NTPClient::begin(int port) {
   this->_udpSetup = true;
 }
 
-bool NTPClient::forceUpdate() {
+bool NTPClient::forceUpdate(uint16_t timeout) {
   #ifdef DEBUG_NTPClient
     Serial.println("Update from NTP Server");
   #endif
 
-  this->sendNTPPacket();
+  unsigned long current = millis();
+
+  // flush any existing packets
+  while(this->_udp->parsePacket() != 0)
+    this->_udp->flush();
+
+  this->sendNTPPacket(timeout >= 3000 ? 1500 : 500, 2);
 
   // Wait till data is there or timeout...
-  byte timeout = 0;
   int cb = 0;
   do {
     delay ( 10 );
     cb = this->_udp->parsePacket();
-    if (timeout > 100) return false; // timeout after 1000 ms
-    timeout++;
+    if (millis() - current > timeout) return false; // timeout after 1000 ms
   } while (cb == 0);
-
-  Serial.print("loop end "); Serial.println(millis());
 
   this->_lastUpdate = millis() - (10 * (timeout + 1)); // Account for delay in reading the time
 
   this->_udp->read(this->_packetBuffer, NTP_PACKET_SIZE);
-
-  Serial.print("read end "); Serial.println(millis());
 
   unsigned long highWord = word(this->_packetBuffer[40], this->_packetBuffer[41]);
   unsigned long lowWord = word(this->_packetBuffer[42], this->_packetBuffer[43]);
@@ -93,16 +114,16 @@ bool NTPClient::forceUpdate() {
 
   this->_currentEpoc = secsSince1900 - SEVENZYYEARS;
 
-  return true;
+  return true;  // return true after successful update
 }
 
-bool NTPClient::update() {
+bool NTPClient::update(uint16_t timeout) {
   if ((millis() - this->_lastUpdate >= this->_updateInterval)     // Update after _updateInterval
     || this->_lastUpdate == 0) {                                // Update if there was no update yet.
     if (!this->_udpSetup) this->begin();                         // setup the UDP client if needed
-    return this->forceUpdate();
+    return this->forceUpdate(timeout);
   }
-  return true;
+  return false;   // return false if update does not occur
 }
 
 unsigned long NTPClient::getEpochTime() const {
@@ -156,7 +177,7 @@ void NTPClient::setPoolServerName(const char* poolServerName) {
     this->_poolServerName = poolServerName;
 }
 
-void NTPClient::sendNTPPacket() {
+void NTPClient::sendNTPPacket(uint16_t dnsTimeout, uint8_t dnsRetries) {
   // set all bytes in the buffer to 0
   memset(this->_packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -173,10 +194,11 @@ void NTPClient::sendNTPPacket() {
 
   // all NTP fields have been given values, now
   // you can send a packet requesting a timestamp:
-  Serial.print("ntp begin "); Serial.println(millis());;
-  this->_udp->beginPacket(this->_poolServerName, 123); //NTP requests are to port 123
-  Serial.print("ntp write1 "); Serial.println(millis());
+  if  (this->_poolServerName) {
+    this->_udp->beginPacket(this->_poolServerName, 123, dnsTimeout, dnsRetries);
+  } else {
+    this->_udp->beginPacket(this->_poolServerIP, 123);
+  }
   this->_udp->write(this->_packetBuffer, NTP_PACKET_SIZE);
-  Serial.print("ntp write2 "); Serial.println(millis());
   this->_udp->endPacket();
 }
