@@ -45,7 +45,7 @@ int main()
     // for some reason d10 on by default
     digitalWrite(10, LOW);
 
-    Serial.begin(Config::SERIAL_RATE); 
+    Serial.begin(Config::SERIAL_RATE);
 
     Handler handler {};
 
@@ -62,14 +62,12 @@ int main()
 
     wdt_enable(WDTO_8S);
 
-    connectToRadio(radio);
+    uint8_t radioFailures = connectToRadio(radio) ? 0 : 1;
 
     wdt_reset();
 
-    // 1 minute
-    unsigned long TIME_PERIOD = 60000UL;
-    unsigned long startTime = millis();
-    uint8_t networkFailures = 10;
+    unsigned long lastReceived = 0;
+    unsigned long lastLoop = millis();
 ;
     while(true) {
 
@@ -81,6 +79,8 @@ int main()
                 Serial.println(F("Failed to receive for slave"));
                 Serial.println(received.id);
                 continue;
+            } else {
+                lastReceived = millis();
             }
 
             if (header.to_node != encMesh.getNodeId()) {
@@ -101,14 +101,20 @@ int main()
                 Serial.println(F("Ignoring since pin is not available"));
             }
         }
-        unsigned long currentTime = millis();
-        if (currentTime - startTime > TIME_PERIOD) {
+        if (millis() - lastLoop > 60000UL) {
             wdt_reset();
             handler.handleTimeouts();
-            startTime = currentTime;
+            lastLoop = millis();
             if (radio.failureDetected) {
                 radio.failureDetected = 0;
-                connectToRadio(radio);
+                radioFailures = connectToRadio(radio) ? 0 : radioFailures + 1;
+            }
+            if (millis() - lastReceived > 3600000UL) {
+                radioFailures = connectToRadio(radio) ? 0 : radioFailures + 1;
+            }
+            if (radioFailures > 10) {
+                resetFunc();
+                return 1;
             }
             Serial.println(F("Ping"));
 

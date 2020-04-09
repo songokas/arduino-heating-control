@@ -151,29 +151,7 @@ int main()
     EthernetClient net;
 
     PubSubClient mqttClient(net);
-
-    Serial << F("Wait for mqtt server on ") << MQTT_SERVER_ADDRESS << endl;
-
-    uint16_t mqttAttempts = 0;
     mqttClient.setServer(MQTT_SERVER_ADDRESS, 1883);
-    while (!mqttClient.connect(NODE_NAME) && mqttAttempts < 6) {
-        mqttAttempts++;
-        Serial.print(".");
-        delay(500 * mqttAttempts);
-        wdt_reset();
-    }
-    if (mqttAttempts >= 6) {
-        Serial << F("failed to connect.") << endl;
-    } else {
-        Serial << F("connected.") << endl;
-        if (mqttClient.subscribe(SUBSCRIBE_TOPIC)) {
-            Serial << F("Subscribed to: ") << SUBSCRIBE_TOPIC << endl;
-        } else {
-            Serial << F("Failed to subscribe to: ") << SUBSCRIBE_TOPIC << endl;
-        }
-    }
-    mqttClient.setCallback(mqttCallback);
-
 
     unsigned long handleTime = 0;
     unsigned long timeUpdate = 0;
@@ -182,6 +160,12 @@ int main()
     uint8_t failureToApplyStates = 0;
     uint8_t publishFailed = 0;
     uint8_t reconnectMqttFailed = 0;
+
+    Serial << F("Wait for mqtt server on ") << MQTT_SERVER_ADDRESS << endl;
+
+    reconnectMqttFailed = connectToMqtt(mqttClient, NODE_NAME, SUBSCRIBE_TOPIC) ? 0 : 1;
+
+    mqttClient.setCallback(mqttCallback);
 
     auto retrieveCallback = [&mqttClient, &encMesh, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived]() {
         mqttClient.loop();
@@ -246,23 +230,13 @@ int main()
 
             wdt_reset();
 
-            char topic[MAX_LEN_TOPIC] {0};
-            snprintf_P(topic, COUNT_OF(topic), CHANNEL_KEEP_ALIVE);
-
-            char liveMsg[16] {0};
-            sprintf(liveMsg, "%lu", millis());
-            Serial << F("Mqtt send ") << topic << F(" ") << liveMsg << endl;
-		    if (!mqttClient.publish(topic, liveMsg)) {
-                Serial << F("Failed to send keep alive") << endl;
-                if (!connectToMqtt(NODE_NAME, mqttClient, SUBSCRIBE_TOPIC)) {
-                    reconnectMqttFailed++;
-                } else {
-                    reconnectMqttFailed = 0;
-                }
+            if (!sendKeepAlive(mqttClient, NODE_NAME, CHANNEL_KEEP_ALIVE)) {
                 publishFailed++;
-		    } else {
+                reconnectMqttFailed = connectToMqtt(mqttClient, NODE_NAME, SUBSCRIBE_TOPIC) ? 0 : reconnectMqttFailed + 1;
+            } else {
                 publishFailed = 0;
             }
+
 
             wdt_reset();
 

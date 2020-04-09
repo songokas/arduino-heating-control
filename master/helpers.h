@@ -215,7 +215,8 @@ bool syncTimeZoneTime(unsigned long utc)
 }
 
 
-bool maintainDhcp() {
+bool maintainDhcp()
+{
 
   switch (Ethernet.maintain())
   {
@@ -251,23 +252,41 @@ bool maintainDhcp() {
   return true;
 }
 
-bool connectToMqtt(const char * clientName, PubSubClient & client, const char * subscribeTopic) {
+bool connectToMqtt(PubSubClient & client, const char * clientName, const char * subscribeTopic)
+{
     if (!client.connected()) {
-        wdt_reset();
         Serial << F("Attempting MQTT connection...");
-        if (client.connect(clientName)) {
-            Serial << F("Mqtt connected") << endl;
-            if (!client.subscribe(subscribeTopic)) {
-                Serial << F("Failed to subscribe to: ") << subscribeTopic << endl;
-            }
-            return true;
-
-        } else {
+        uint16_t mqttAttempts = 0;
+        while (!client.connect(clientName) && mqttAttempts < 6) {
+            mqttAttempts++;
+            Serial.print(".");
+            delay(500 * mqttAttempts);
+            wdt_reset();
+        }
+        if (mqttAttempts >= 6) {
             Serial << F("Mqtt connection failed, rc=") << client.state() << F(" try again in 5 seconds") << endl;
             return false;
+        } else {
+            Serial << F("connected.") << endl;
+            if (client.subscribe(subscribeTopic)) {
+                Serial << F("Subscribed to: ") << SUBSCRIBE_TOPIC << endl;
+            } else {
+                Serial << F("Failed to subscribe to: ") << SUBSCRIBE_TOPIC << endl;
+            }
         }
+        wdt_reset();
     }
     return true;
+}
+
+bool sendKeepAlive(PubSubClient & client, const char * clientName,  const char * keepAliveTopic)
+{
+    char topic[MAX_LEN_TOPIC] {0};
+    snprintf_P(topic, COUNT_OF(topic), keepAliveTopic);
+    char liveMsg[16] {0};
+    sprintf(liveMsg, "%lu", millis());
+    Serial << F("Mqtt send ") << topic << F(" ") << liveMsg << endl;
+    return client.publish(topic, liveMsg);
 }
 
 bool connectToRadio(RF24 & radio)
@@ -388,15 +407,22 @@ void checkSockStatus(EthernetServer & server)
     }
 }
 
-void updateTime()
+bool updateTime()
 {
-    #ifdef NTP_TIME
+    bool updated = false;
+#ifdef NTP_TIME
     EthernetUDP udpConnection;
-    NTPClient timeClient(udpConnection, "europe.pool.ntp.org", 0, 3600000UL);
+    NTPClient timeClient(udpConnection, "europe.pool.ntp.org", 0, 1800000UL);
+    unsigned long begin = millis();
     timeClient.begin();
-    bool timeSet = timeClient.update();
+    bool timeSet = timeClient.update(5000);
+    unsigned long end = millis();
     if (timeSet) {
+        Serial << F("Updating time. Took: ") << end - begin << endl;
         syncTime(timeClient);
+        updated = true;
+    } else {
+        Serial << F("Time not updated. Took: ") << end - begin << endl;
     }
     // random freeze if udp connection is kept
     timeClient.end();
@@ -409,8 +435,12 @@ void updateTime()
     if (rtc.IsDateTimeValid()) {
         RtcDateTime now = rtc.GetDateTime();
         setTime(now.Epoch32Time());
+        updated = true;
+    } else {
+        Serial << F("Time not updated") << endl;
     }
 #endif
 
     wdt_reset();
+    return updated;
 }
