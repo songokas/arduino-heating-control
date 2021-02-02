@@ -33,7 +33,6 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
-using RadioEncrypted::reconnect;
 
 volatile byte notify = 0;
 
@@ -134,7 +133,6 @@ int main()
     byte buttonPressed = 0;
     float expectedTemperature = 0;
 
-    unsigned long timeLastSent = 0;
     uint8_t failures = 0;
 
     while(true) {

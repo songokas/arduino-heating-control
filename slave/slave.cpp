@@ -32,7 +32,6 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
-using RadioEncrypted::reconnect;
 
 #include "helpers.h"
 

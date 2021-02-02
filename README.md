@@ -12,6 +12,12 @@
 * download/install arduino editor
 
 
+```
+sudo apt-get install arduino-mk
+cd install && wget https://downloads.arduino.cc/arduino-1.8.13-linux64.tar.xz && tar xf arduino-1.8.13-linux64.tar.xz
+```
+
+
 ## Harware dependencies
 
 * arduinos - for thinking/temperature transmission

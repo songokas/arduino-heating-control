@@ -21,8 +21,6 @@ namespace Heating
 
             void handlePacket(const Packet & packet);
 
-            bool applyState(ZoneInfo & state, IEncryptedMesh & radio, const HeaterInfo & heaterInfo);
-
             bool isAnyEnabled() const;
             bool isAnyWarmEnough() const;
 

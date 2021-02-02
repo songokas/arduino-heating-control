@@ -35,7 +35,12 @@ void ZoneInfo::addTemperature(float currentTemperature)
 
 bool ZoneInfo::isOn() const
 {
-    return now() - dtReceived < (Config::MAX_DELAY / 1000) && pin.state > 0;
+    return (now() - dtReceived < (Config::MAX_DELAY / 1000)) && pin.state > 0;
+}
+
+bool ZoneInfo::isExpectedOn() const
+{
+    return (now() - expectedDtReceived < (Config::MAX_DELAY / 1000)) && senderExpectedTemperature != 0;
 }
 
 bool ZoneInfo::isWarm(unsigned int acctuatorWarmupTime) const
@@ -52,6 +57,11 @@ byte ZoneInfo::getState() const
 byte ZoneInfo::getPwmState() const
 {
     return map(getState(), 0, 100, 0, 255);
+}
+
+uint16_t ZoneInfo::getPwmValue() const 
+{
+    return map(getState(), 0, 100, 0, 1023);
 }
 
 void ZoneInfo::recordState(byte state)
@@ -115,6 +125,8 @@ void ZoneInfo::print() const
     Serial.print(isOn() ? "yes" : "no");
     Serial.print(F(" Sender expected: "));
     Serial.print(senderExpectedTemperature);
+    Serial.print(F(" Expected on: "));
+    Serial.print(isExpectedOn() ? "yes" : "no");
     Serial.println();
 }
 

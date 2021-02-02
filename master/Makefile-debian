@@ -1,7 +1,7 @@
 BOARD_TAG = mega
 BOARD_SUB = atmega2560
-ARDUINO_DIR = $(HOME)/install/arduino-1.8.12
-ARDUINO_CORE_PATH = $(realpath ../libraries/ArduinoCore-avr/cores/arduino)9
+ARDUINO_DIR = $(HOME)/install/arduino-1.8.13
+ARDUINO_CORE_PATH = $(realpath ../libraries/ArduinoCore-avr/cores/arduino)
 
 USER_LIB_PATH = $(realpath ../arduino-link)
 
@@ -13,6 +13,7 @@ CURRENT_TIME = $(shell date +%s)
 
 # ENC_KEY must be 16 chars long and same across master, slave, nodes
 # OWN_TEMPERATURE_SENSOR define pin if master has a temperature sensor e.g. -DOWN_TEMPERATURE_SENSOR=34
-CXXFLAGS_STD +=-DNTP_TIME=1 DNODE_NAME=\"heating/master\" -DMQTT_SERVER_ADDRESS=\"192.168.0.140\" -DFAILURE_HANDLING=1 -DOWN_TEMPERATURE_SENSOR=34 -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
+CXXFLAGS_STD +=-DMQTT_MAX_MESSAGE_LENGTH=160 -DNTP_TIME=1 -DMQTT_CLIENT_NAME=\"heating/master\" -DMQTT_SERVER_ADDRESS=\"192.168.0.140\" -DFAILURE_HANDLING=1 -DOWN_TEMPERATURE_SENSOR=34 -DCURRENT_TIME=$(CURRENT_TIME)UL -DSHARED_KEY=\"$(ENC_KEY)\" -I $(realpath ../arduino-link)
+LDFLAGS += -Wl,-u,vfprintf -lprintf_flt -lm
 MONITOR_PARMS += -L
 

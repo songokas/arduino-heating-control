@@ -156,6 +156,7 @@
                                             </div>
                                         </div>
                                         <button class="btn btn-primary btn-sm" rv-on-click="settings.addTime">+</button>
+                                        <button class="btn btn-primary btn-sm" title="Increase temperature for 2 hours" rv-on-click="settings.warmUp">Warmup</button>
                                     </td>
                                 </tr>
                                 <tr><td colspan="2"><button class="btn btn-primary btn-sm" rv-on-click="settings.addZone">+</button></td></tr>
@@ -214,8 +215,17 @@
                     this.updating = true;
                     const data = JSON.stringify(this.config);
                     ajax('/', data, this);
-
                 }
+
+                warmUp(ev, context, model) {
+                    ev.preventDefault();
+                    this.updating = true;
+                    const zone = this.config.zones[model['%zone%']]
+                    const url = "/heating/nodes/" + zone.n + "/temperature"
+                    const data = JSON.stringify({expectedTemperature: 2300});
+                    ajax(url, data, this);
+                }
+
                 reload() {
                     window.location.reload();
                 }

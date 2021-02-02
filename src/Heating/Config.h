@@ -44,7 +44,7 @@ namespace Heating
 
             static constexpr uint8_t AVAILABLE_PINS_NANO[] = {3, 5, 6, 9, 10};
             // 2 to 13 and 44 to 46.
-            static constexpr uint8_t AVAILABLE_PINS_MEGA[] = {3, 4, 5, 6, 9, 10, 34, 35, 44, 45, 46, 103, 105, 106, 109, 110};
+            static constexpr uint8_t AVAILABLE_PINS_MEGA[] = {3, 4, 5, 6, 9, 10, 34, 35, 44, 45, 46, 103, 105, 106, 109, 110, 201, 202, 203, 204, 205, 206};
             
 
             static const uint8_t PIN_RADIO_CE = 7;

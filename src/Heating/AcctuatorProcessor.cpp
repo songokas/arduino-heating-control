@@ -32,35 +32,6 @@ AcctuatorProcessor::AcctuatorProcessor(const Config & c): config(c)
 {
 }
 
-bool AcctuatorProcessor::applyState(ZoneInfo & zoneInfo, IEncryptedMesh & radio, const HeaterInfo & heaterInfo)
-{
-    if (zoneInfo.pin.id > 0) {
-        zoneInfo.print();
-    }
-    if (zoneInfo.pin.id > 100) {
-        wdt_reset();
-        ControllPacket controllPacket {zoneInfo.pin.id - 100, zoneInfo.getPwmState()};
-        if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
-
-            Serial.print(F("Failed to send Id: "));
-            Serial.print(controllPacket.id);
-            Serial.print(F(" State: "));
-            Serial.println(controllPacket.state);
-
-            zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
-            return false;
-        } else {
-            zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
-        }
-    } else if (zoneInfo.pin.id > 0) {
-        pinMode(zoneInfo.pin.id, OUTPUT);
-        analogWrite(zoneInfo.pin.id, zoneInfo.getPwmState());
-    }
-    zoneInfo.recordState(zoneInfo.getState());
-    //saveReached(zoneInfo.pin.id, zoneInfo.reachedDesired);
-    return true;
-}
-
 void AcctuatorProcessor::handlePacket(const Packet & packet)
 {
     float currentTemperature = packet.currentTemperature != 0 ? (float)packet.currentTemperature / 100 : 0;
@@ -73,21 +44,27 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
         return;
     }
 
-    const ZoneConfig * zoneConfig = getZoneConfigById(packet.id);
+    byte id = packet.id;
+
+    const ZoneConfig * zoneConfig = getZoneConfigById(id);
     if (!zoneConfig) {
         Serial.print(F("Error id "));
-        Serial.print(packet.id);
+        Serial.print(id);
         Serial.println(F(" is not in settings. Ignoring"));
         return;
     }
-    ZoneInfo & zoneInfo = getAvailableZoneInfoById(packet.id);
+    ZoneInfo & zoneInfo = getAvailableZoneInfoById(id);
     if (!(zoneInfo.pin.id > 0)) {
-        zoneInfo.pin.id = packet.id;
+        zoneInfo.pin.id = id;
     }
-    zoneInfo.addTemperature(currentTemperature);
-    zoneInfo.dtReceived = now();
-    float expectedTemperature = packet.expectedTemperature != 0 ? (float)packet.expectedTemperature / 100 : 0;
-    zoneInfo.senderExpectedTemperature = expectedTemperature;
+    if (packet.currentTemperature != 0) {
+        zoneInfo.addTemperature(currentTemperature);
+        zoneInfo.dtReceived = now();
+    }
+    if (packet.expectedTemperature != 0) {
+        zoneInfo.senderExpectedTemperature = (float)packet.expectedTemperature / 100;
+        zoneInfo.expectedDtReceived = now();
+    }
 }
 
 void AcctuatorProcessor::handleStates()
@@ -103,7 +80,7 @@ void AcctuatorProcessor::handleStates()
         }
         const ZoneConfig * zoneConfig = getZoneConfigById(zoneInfo.pin.id);
 
-        if (zoneInfo.senderExpectedTemperature > 0) {
+        if (zoneInfo.isExpectedOn()) {
             setExpectedTemperature(zoneInfo, zoneInfo.senderExpectedTemperature);
             continue;
         }

@@ -79,21 +79,67 @@ bool retrieveJson(JsonDocument & doc, const char * content)
     if (error) {
         Serial << F("deserializeJson() failed: ") << error.c_str() << endl;
         return false;
-    } else {
-        return true;
     }
-    return false;
+    return true;
+}
+
+void handleAcctuator(PubSubClient & mqttClient, IEncryptedMesh & radio, ZoneInfo & zoneInfo)
+{
+    zoneInfo.print();
+
+    if (zoneInfo.pin.id > 200) {
+        char topic[MQTT_MAX_LEN_TOPIC] {0};
+        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE, zoneInfo.pin.id - 200);
+        char message[6] {0};
+        snprintf_P(message, COUNT_OF(message), PSTR("%u"), zoneInfo.getPwmValue());
+        if (!mqttClient.publish(topic, message)) {
+            zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
+            Serial << F("Failed to send ") << topic << F(" Message: ") << message << endl;
+        } else {
+            zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
+            zoneInfo.recordState(zoneInfo.getState());
+        }
+        
+    } else if (zoneInfo.pin.id > 100) {
+        ControllPacket controllPacket {(uint8_t)(zoneInfo.pin.id - 100), zoneInfo.getPwmState()};
+        if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
+            zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
+            Serial << F("Failed to send ") << controllPacket.id << F(" State: ") << zoneInfo.getPwmState() << endl;
+            return;
+        } else {
+            zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
+            zoneInfo.recordState(zoneInfo.getState());
+        }
+
+    } else if (zoneInfo.pin.id > 0) {
+        pinMode(zoneInfo.pin.id, OUTPUT);
+        analogWrite(zoneInfo.pin.id, zoneInfo.getPwmState());
+        zoneInfo.recordState(zoneInfo.getState());
+    }
+
+    auto zone = processor.getZoneConfigById(zoneInfo.pin.id);
+    if (zone == nullptr) {
+        return;
+    }
+
+    char topic[MQTT_MAX_LEN_TOPIC] {0};
+    snprintf_P(topic, COUNT_OF(topic), INFO_NODE_TOPIC, zone->getName());
+    char message[MQTT_MAX_LEN_MESSAGE] {0};
+    snprintf_P(message, COUNT_OF(message), INFO_NODE_MESSAGE, zoneInfo.getCurrentTemperature(), zoneInfo.getState());
+    if (!mqttClient.publish(topic, message)) {
+        Serial << F("Failed to send info to ") << zone->getName() << endl;
+    }
 }
 
 bool handleJson(AcctuatorProcessor & manager, const char * requestString, const char * pos)
 {
     for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
-        wdt_reset();
+        resetWatchDog();
         auto & zone = config.getZone(i);
         if (!(zone.id > 0)) {
             continue;
         }
-        char expectedTopic[MAX_LEN_TOPIC] {0};
+        char expectedTopic[MQTT_MAX_LEN_TOPIC] {0};
         snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
 
         if (strstr(requestString, expectedTopic) > 0) {
@@ -101,6 +147,9 @@ bool handleJson(AcctuatorProcessor & manager, const char * requestString, const 
             if (retrieveJson(doc, pos + 4)) {
                 if (doc["temperature"].is<int16_t>()) {
                     Packet packet {zone.id, doc["temperature"]};
+                    return handlePacket(manager, packet);
+                } else if (doc["expectedTemperature"].is<int16_t>()) {
+                    Packet packet {zone.id, 0, doc["expectedTemperature"]};
                     return handlePacket(manager, packet);
                 } else {
                     Serial << F("Invalid json structure") << endl;
@@ -170,8 +219,6 @@ bool handleRequest(EthernetClient & client, Storage & storage, AcctuatorProcesso
     return configUpdated;
 }
 
-
-
 bool handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
 {
     if (radio.isAvailable()) {
@@ -187,8 +234,7 @@ bool handleRadio(IEncryptedMesh & radio, AcctuatorProcessor & processor)
     return false;
 }
 
-
-void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)
+void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo, PubSubClient & mqttClient)
 {
     if (processor.isAnyWarmEnough()) {
         if (!heaterInfo.isOn()) {
@@ -201,6 +247,14 @@ void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo)
             Serial.println(F("Disabling heating"));
             digitalWrite(Config::PIN_HEATING, HIGH);
         }
+    }
+
+    char topic[MQTT_MAX_LEN_TOPIC] {0};
+    snprintf_P(topic, COUNT_OF(topic), INFO_MASTER_TOPIC);
+    char message[MQTT_MAX_LEN_MESSAGE] {0};
+    snprintf_P(message, COUNT_OF(message), INFO_MASTER_MESSAGE, heaterInfo.isOn() ? 100 : 0);
+    if (!mqttClient.publish(topic, message)) {
+        Serial << F("Failed to send info about heater") << endl;
     }
 }
 
@@ -252,7 +306,7 @@ bool maintainDhcp()
   return true;
 }
 
-bool connectToMqtt(PubSubClient & client, const char * clientName, const char * subscribeTopic)
+bool connectToMqtt(PubSubClient & client, const char * clientName, const char * subscribeTopic, const char * secondTopic)
 {
     if (!client.connected()) {
         Serial << F("Attempting MQTT connection...");
@@ -261,30 +315,30 @@ bool connectToMqtt(PubSubClient & client, const char * clientName, const char * 
             mqttAttempts++;
             Serial.print(".");
             delay(500 * mqttAttempts);
-            wdt_reset();
+            resetWatchDog();
         }
         if (mqttAttempts >= 6) {
             Serial << F("Mqtt connection failed, rc=") << client.state() << F(" try again in 5 seconds") << endl;
             return false;
         } else {
             Serial << F("connected.") << endl;
-            if (client.subscribe(subscribeTopic)) {
-                Serial << F("Subscribed to: ") << SUBSCRIBE_TOPIC << endl;
+            if (client.subscribe(subscribeTopic) && client.subscribe(secondTopic)) {
+                Serial << F("Subscribed to: ") << subscribeTopic << F(" ") << secondTopic << endl;
             } else {
-                Serial << F("Failed to subscribe to: ") << SUBSCRIBE_TOPIC << endl;
+                Serial << F("Failed to subscribe to: ") << subscribeTopic << F(" ") << secondTopic << endl;
             }
         }
-        wdt_reset();
+        resetWatchDog();
     }
     return true;
 }
 
-bool sendKeepAlive(PubSubClient & client, const char * clientName,  const char * keepAliveTopic)
+bool sendKeepAlive(PubSubClient & client,  const char * keepAliveTopic, unsigned long time)
 {
-    char topic[MAX_LEN_TOPIC] {0};
+    char topic[MQTT_MAX_LEN_TOPIC] {0};
     snprintf_P(topic, COUNT_OF(topic), keepAliveTopic);
     char liveMsg[16] {0};
-    sprintf(liveMsg, "%lu", millis());
+    sprintf(liveMsg, "%lu", time);
     Serial << F("Mqtt send ") << topic << F(" ") << liveMsg << endl;
     return client.publish(topic, liveMsg);
 }
@@ -318,28 +372,39 @@ bool connectToRadio(RF24 & radio)
 void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
 {
     Serial << F("Mqtt message received for: ") << topic << endl;
-    char message[MAX_LEN_MESSAGE];
-    memcpy(message, payload, MIN(len, COUNT_OF(message)));
+    char message[MQTT_MAX_LEN_MESSAGE] {0};
+    memcpy(message, payload, MIN(len, COUNT_OF(message) - 1));
 
-    bool handled = false;
     for (uint8_t i = 0; i < config.getZoneArrLength(); i++) {
         auto & zone = config.getZone(i);
         if (!(zone.id > 0)) {
             continue;
         }
-        char expectedTopic[MAX_LEN_TOPIC] {0};
+        char expectedTopic[MQTT_MAX_LEN_TOPIC] {0};
         snprintf_P(expectedTopic, COUNT_OF(expectedTopic), HEATING_TOPIC, zone.getName());
         if (strncmp(expectedTopic, topic, strlen(expectedTopic)) == 0) {
             int16_t value = atoi(message);
             Packet packet { zone.id, value };
-            handled = handlePacket(processor, packet);
-            break;
+            handlePacket(processor, packet);
+            return;
+        }
+        char zigbeeTopic[MQTT_MAX_LEN_TOPIC] {0};
+        snprintf_P(zigbeeTopic, COUNT_OF(zigbeeTopic), HEATING_ZIGBEE_TOPIC, zone.getName());
+        if (strncmp(zigbeeTopic, topic, strlen(zigbeeTopic)) == 0) {
+            StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
+            if (retrieveJson(doc, message)) {
+                if (doc["temperature"].is<float>()) {
+                    Packet packet {zone.id, (int16_t)(doc["temperature"].as<float>() * 100)};
+                    handlePacket(processor, packet);
+                } else {
+                    Serial << F("Invalid json structure") << endl;
+                }
+            }
+            return;
         }
     }
 
-    if (!handled) {
-        Serial << "Not handled: " << topic << endl; 
-    }
+    Serial << "Not handled: " << topic << endl; 
 }
 
 #ifdef NTP_TIME
@@ -393,7 +458,7 @@ void checkSockStatus(EthernetServer & server)
 {
     for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
         EthernetClient client(sock);
-        Serial << F("socket status: ") << client.status() << F(" local port: ") << client.localPort() << F(" server port: ") << EthernetServer::server_port[sock] << endl;
+        //Serial << F("socket status: ") << client.status() << F(" local port: ") << client.localPort() << F(" server port: ") << EthernetServer::server_port[sock] << endl;
         if (EthernetServer::server_port[sock] == 80) {
             if (client.status() != 0x14) {
                 Serial << F("Server is not listening. Restarting") << endl;
@@ -407,7 +472,13 @@ void checkSockStatus(EthernetServer & server)
     }
 }
 
-bool updateTime()
+struct TimeOperation
+{
+    bool updated;
+    unsigned long elapsed;
+};
+
+TimeOperation updateTime()
 {
     bool updated = false;
 #ifdef NTP_TIME
@@ -426,6 +497,7 @@ bool updateTime()
     }
     // random freeze if udp connection is kept
     timeClient.end();
+    return TimeOperation{updated, end - begin};
 #else
 
     ThreeWire myWire(10, 9, 11); // DATA, SCLK, RESET
@@ -439,8 +511,6 @@ bool updateTime()
     } else {
         Serial << F("Time not updated") << endl;
     }
+    return TimeOperation{updated, 0};
 #endif
-
-    wdt_reset();
-    return updated;
 }

@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24Network.h>
 #include <Crypto.h>
 #include <CryptoLW.h>
 #include <Acorn128.h>
@@ -33,20 +34,23 @@
 #include "Heating/Config.h"
 // arduino-mk
 
+#include "Heating/Common.h"
 #include "Heating/Storage.h"
 #include "Heating/TemperatureSensor.h"
 #include "Heating/Domain/HeaterInfo.h"
 #include "Heating/Domain/ZoneInfo.h"
 
 #include "CommonModule/MacroHelper.h"
+#include "MqttModule/MqttConfig.h"
 #include "RadioEncrypted/RadioEncryptedConfig.h"
 #include "RadioEncrypted/Encryption.h"
 #include "RadioEncrypted/EncryptedRadio.h"
 #include "RadioEncrypted/Entropy/AnalogSignalEntropy.h"
 #include "RadioEncrypted/Helpers.h"
-#include "MqttModule/MqttConfig.h"
 
 using Heating::Packet;
+using Heating::ControllPacket;
+using Heating::Error;
 using Heating::printTime;
 using Heating::printPacket;
 using Heating::isPinAvailable;
@@ -67,10 +71,18 @@ using RadioEncrypted::Encryption;
 using RadioEncrypted::EncryptedRadio;
 using RadioEncrypted::IEncryptedMesh;
 using RadioEncrypted::Entropy::AnalogSignalEntropy;
-using RadioEncrypted::reconnect;
+using RadioEncrypted::resetWatchDog;
 
 const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
+const char HEATING_ZIGBEE_TOPIC [] PROGMEM {"zigbee2mqtt/heating/nodes/%s"};
 const char * SUBSCRIBE_TOPIC = "heating/nodes/#";
+const char * SUBSCRIBE_ZIGBEE_TOPIC = "zigbee2mqtt/heating/nodes/#";
+const char CHANNEL_SLAVE[] PROGMEM {"cmnd/heating-slave/pwm%d"};
+const char INFO_NODE_TOPIC [] PROGMEM {"stats/heating/nodes/%s"};
+const char INFO_NODE_MESSAGE [] PROGMEM {"{\"temperature\":%0.2f,\"power\":%d}"};
+const char INFO_MASTER_TOPIC [] PROGMEM {"stats/heating/master/info"};
+const char INFO_MASTER_MESSAGE [] PROGMEM {"{\"power\":%d}"};
+const char NTP_MASTER_TOPIC [] PROGMEM {"stats/heating/master/ntp"};
 
 // mqtt is using c style callback and we require these
 StaticConfig<Config::MAX_ZONES, Config::MAX_ZONE_NAME_LENGTH, Config::MAX_TIMES_PER_ZONE> config {};
@@ -114,7 +126,7 @@ int main()
 
     connectToRadio(radio);
 
-    wdt_reset();
+    resetWatchDog();
 
     if (Ethernet.begin(Config::MASTER_MAC) == 0) {
         Serial << F("Failed to obtain dhcp address") << endl;
@@ -129,7 +141,7 @@ int main()
     server.begin();
 
     updateTime();
-    wdt_reset();
+    resetWatchDog();
 
     time_t initTime = now();
     Serial.print(F("current time: "));
@@ -157,26 +169,25 @@ int main()
     unsigned long timeUpdate = 0;
     unsigned long lastRadioReceived = 0;
     uint8_t networkFailures = 0;
-    uint8_t failureToApplyStates = 0;
     uint8_t publishFailed = 0;
     uint8_t reconnectMqttFailed = 0;
 
     Serial << F("Wait for mqtt server on ") << MQTT_SERVER_ADDRESS << endl;
 
-    reconnectMqttFailed = connectToMqtt(mqttClient, NODE_NAME, SUBSCRIBE_TOPIC) ? 0 : 1;
+    reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPIC, SUBSCRIBE_ZIGBEE_TOPIC) ? 0 : 1;
 
     mqttClient.setCallback(mqttCallback);
 
     auto retrieveCallback = [&mqttClient, &encMesh, &server, &heaterInfo, &networkFailures, &storage, &lastRadioReceived]() {
         mqttClient.loop();
 
-        wdt_reset();
+        resetWatchDog();
         if (handleRadio(encMesh, processor)) {
             lastRadioReceived = millis();
         }
         EthernetClient client = server.available();
         bool configUpdated = handleRequest(client, storage, processor, heaterInfo, networkFailures, config);
-        wdt_reset();
+        resetWatchDog();
         if (configUpdated) {
             storage.loadConfiguration(config);
         }
@@ -192,54 +203,46 @@ int main()
 
             Serial << F("Time to send") << endl;
 
-            wdt_reset();
+            resetWatchDog();
 
 #ifdef OWN_TEMPERATURE_SENSOR
-            Packet packet { OWN_TEMPERATURE_SENSOR, 100 * sensor.read(), 0};
-            wdt_reset();
+            Packet packet { OWN_TEMPERATURE_SENSOR, (int16_t)(100 * sensor.read()), 0};
+            resetWatchDog();
             processor.handlePacket(packet);
 #endif
 
-            wdt_reset();
+            resetWatchDog();
 
             processor.handleStates();
 
-            handleHeater(processor, heaterInfo);
+            handleHeater(processor, heaterInfo, mqttClient);
 
-            wdt_reset();
+            resetWatchDog();
 
             if (!heaterInfo.isShutingDown(config.heaterPumpStopTime)) {
+
                 for (uint8_t i = 0; i < processor.getStateArrLength(); i++) {
-                    auto & state = processor.getState(i);
-                    if (!(state.pin.id > 0)) {
+                    auto & zoneInfo = processor.getState(i);
+                    if (!(zoneInfo.pin.id > 0)) {
                         continue;
                     }
-
-                    wdt_reset();
-                    if (!processor.applyState(state, encMesh, heaterInfo)) {
-                        failureToApplyStates++;
-                    } else {
-                        failureToApplyStates = 0;
-                    }
-                    wdt_reset();
-
                     retrieveCallback();
+                    handleAcctuator(mqttClient, encMesh, zoneInfo);
+                    resetWatchDog();
                 }
             }
 
+            resetWatchDog();
 
-            wdt_reset();
-
-            if (!sendKeepAlive(mqttClient, NODE_NAME, CHANNEL_KEEP_ALIVE)) {
+            if (!sendKeepAlive(mqttClient, CHANNEL_KEEP_ALIVE, millis())) {
                 publishFailed++;
-                reconnectMqttFailed = connectToMqtt(mqttClient, NODE_NAME, SUBSCRIBE_TOPIC) ? 0 : reconnectMqttFailed + 1;
+                reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPIC, SUBSCRIBE_ZIGBEE_TOPIC)
+                    ? 0 : reconnectMqttFailed + 1;
             } else {
                 publishFailed = 0;
             }
 
-
-            wdt_reset();
-
+            resetWatchDog();
 
             if (!maintainDhcp()) {
                 networkFailures++;
@@ -247,7 +250,7 @@ int main()
                 networkFailures = 0;
             }
 
-            wdt_reset();
+            resetWatchDog();
 
             if (radio.failureDetected) {
                 radio.failureDetected = 0;
@@ -256,20 +259,7 @@ int main()
 
             checkSockStatus(server);
 
-            wdt_reset();
-
-            bool receiveFailure = millis() - lastRadioReceived > 1800000UL;
-
-            if (receiveFailure) {
-                Serial << F("Reset") << endl;
-                Serial.flush();
-                radio.powerDown();
-                delay(200);
-                resetFunc();
-                return 1;
-            }
-
-            wdt_reset();
+            resetWatchDog();
 
             Serial << F("Memory left:") << freeRam() << endl;
 
@@ -277,12 +267,15 @@ int main()
         }
 
         if (millis() - timeUpdate >= 3600000UL) {
-            updateTime();
-            wdt_reset();
+            TimeOperation timeUpdated = updateTime();
+            resetWatchDog();
+            if (!sendKeepAlive(mqttClient, NTP_MASTER_TOPIC, timeUpdated.elapsed)) {
+                Serial << F("Failed to send ntp message") << endl;
+            }
             timeUpdate = millis();
         }
 
-        wdt_reset();
+        resetWatchDog();
     }
     return 0;
 } 
