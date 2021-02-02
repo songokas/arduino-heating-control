@@ -15,12 +15,14 @@ namespace Heating
                 float senderExpectedTemperature {0};
                 float expectedTemperature {0};
                 time_t dtReceived {0};
-                time_t expectedDtReceived {0};
+                time_t dtExpectedReceived {0};
+                time_t dtConfirmationReceived {0};
 
                 float getCurrentTemperature() const;
                 void addTemperature(float currentTemperature);
                 bool isOn() const;
                 bool isExpectedOn() const;
+                bool hasConfirmation() const;
                 byte getState() const;
                 byte getPwmState() const;
                 uint16_t getPwmValue() const;

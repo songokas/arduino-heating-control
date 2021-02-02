@@ -89,15 +89,17 @@ void handleAcctuator(PubSubClient & mqttClient, IEncryptedMesh & radio, ZoneInfo
 
     if (zoneInfo.pin.id > 200) {
         char topic[MQTT_MAX_LEN_TOPIC] {0};
-        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE, zoneInfo.pin.id - 200);
+        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE_CONTROL, zoneInfo.pin.id - 200);
         char message[6] {0};
         snprintf_P(message, COUNT_OF(message), PSTR("%u"), zoneInfo.getPwmValue());
         if (!mqttClient.publish(topic, message)) {
             zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
             Serial << F("Failed to send ") << topic << F(" Message: ") << message << endl;
         } else {
-            zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
-            zoneInfo.recordState(zoneInfo.getState());
+            if (zoneInfo.hasConfirmation() || zoneInfo.getState() == 0) {
+                zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
+                zoneInfo.recordState(zoneInfo.getState());
+            }
         }
         
     } else if (zoneInfo.pin.id > 100) {
@@ -402,6 +404,46 @@ void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
             }
             return;
         }
+
+
+
+    }
+
+    char confirmTopic[MQTT_MAX_LEN_TOPIC] {0};
+    snprintf_P(confirmTopic, COUNT_OF(confirmTopic), CHANNEL_SLAVE_CONFIRM);
+    if (strncmp(confirmTopic, topic, strlen(confirmTopic)) == 0) {
+        StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
+        if (retrieveJson(doc, message)) {
+            auto json = doc["PWM"].as<JsonObject>();
+            for (const auto & pwm: json) {
+
+                if (!pwm.value().is<int16_t>()) {
+                    continue;
+                }
+
+                int16_t val = pwm.value().as<int16_t>();
+                if (!(val > 0)) {
+                    continue;
+                }
+                auto title = pwm.key().c_str();
+                int pwmIndex {0};
+                sscanf(title, "PWM%d", &pwmIndex);
+                if (!(pwmIndex > 0)) {
+                    continue;
+                }
+                // mqtt zones above 200
+                uint8_t id = pwmIndex + 200;
+                auto zoneConfig = processor.getZoneConfigById(id);
+                if (zoneConfig == nullptr) {
+                    continue;
+
+                }
+                ZoneInfo & zoneInfo = processor.getAvailableZoneInfoById(id);
+                Serial << "Confirmation received" << id << endl;
+                zoneInfo.dtConfirmationReceived = now();
+            }
+        }
+        return;
     }
 
     Serial << "Not handled: " << topic << endl; 

@@ -77,12 +77,13 @@ const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
 const char HEATING_ZIGBEE_TOPIC [] PROGMEM {"zigbee2mqtt/heating/nodes/%s"};
 const char * SUBSCRIBE_TOPIC = "heating/nodes/#";
 const char * SUBSCRIBE_ZIGBEE_TOPIC = "zigbee2mqtt/heating/nodes/#";
-const char CHANNEL_SLAVE[] PROGMEM {"cmnd/heating-slave/pwm%d"};
-const char INFO_NODE_TOPIC [] PROGMEM {"stats/heating/nodes/%s"};
+const char CHANNEL_SLAVE_CONTROL[] PROGMEM {"cmnd/heating-slave/pwm%d"};
+const char CHANNEL_SLAVE_CONFIRM[] PROGMEM {"stat/heating-slave/result"};
+const char INFO_NODE_TOPIC [] PROGMEM {"stat/heating/nodes/%s"};
 const char INFO_NODE_MESSAGE [] PROGMEM {"{\"temperature\":%0.2f,\"power\":%d}"};
-const char INFO_MASTER_TOPIC [] PROGMEM {"stats/heating/master/info"};
+const char INFO_MASTER_TOPIC [] PROGMEM {"stat/heating/master/info"};
 const char INFO_MASTER_MESSAGE [] PROGMEM {"{\"power\":%d}"};
-const char NTP_MASTER_TOPIC [] PROGMEM {"stats/heating/master/ntp"};
+const char NTP_MASTER_TOPIC [] PROGMEM {"stat/heating/master/ntp"};
 
 // mqtt is using c style callback and we require these
 StaticConfig<Config::MAX_ZONES, Config::MAX_ZONE_NAME_LENGTH, Config::MAX_TIMES_PER_ZONE> config {};
