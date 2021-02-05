@@ -1,7 +1,32 @@
+Filters: ~[!nonportable]~[!benchmark]~[approvals]
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 <exe-name> is a <version> host application.
 Run with -? for options
+
+Randomness seeded to: 1
+
+-------------------------------------------------------------------------------
+#1455 - INFO and WARN can start with a linebreak
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: warning:
+
+This warning message starts with a linebreak
+
+This would not be caught previously
+Nor would this
+-------------------------------------------------------------------------------
+#1514: stderr/stdout is not captured in tests aborted by an exception
+-------------------------------------------------------------------------------
+Tricky.tests.cpp:<line number>
+...............................................................................
+
+Tricky.tests.cpp:<line number>: FAILED:
+explicitly with message:
+  1514
 
 -------------------------------------------------------------------------------
 #748 - captures with unexpected exceptions
@@ -89,6 +114,168 @@ Class.tests.cpp:<line number>: FAILED:
   REQUIRE( s == "world" )
 with expansion:
   "hello" == "world"
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD based test run that fails - Template_Foo
+<float>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>::m_a.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD based test run that fails - Template_Foo
+<int>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>::m_a.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD based test run that fails - std::vector
+<float>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>::m_a.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD based test run that fails - std::vector
+<int>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>::m_a.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD_SIG based test run that fails -
+Template_Foo_2<float, 6>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>{}.m_a.size() < 2 )
+with expansion:
+  6 < 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD_SIG based test run that fails -
+Template_Foo_2<int, 2>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>{}.m_a.size() < 2 )
+with expansion:
+  2 < 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD_SIG based test run that fails - std::array
+<float, 6>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>{}.m_a.size() < 2 )
+with expansion:
+  6 < 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_PRODUCT_TEST_CASE_METHOD_SIG based test run that fails - std::array
+<int, 2>
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture_2<TestType>{}.m_a.size() < 2 )
+with expansion:
+  2 < 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD based test run that fails - double
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture<TestType>::m_a == 2 )
+with expansion:
+  1.0 == 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD based test run that fails - float
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture<TestType>::m_a == 2 )
+with expansion:
+  1.0f == 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD based test run that fails - int
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Template_Fixture<TestType>::m_a == 2 )
+with expansion:
+  1 == 2
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD_SIG based test run that fails - 1
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Nttp_Fixture<V>::value == 0 )
+with expansion:
+  1 == 0
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD_SIG based test run that fails - 3
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Nttp_Fixture<V>::value == 0 )
+with expansion:
+  3 == 0
+
+-------------------------------------------------------------------------------
+A TEMPLATE_TEST_CASE_METHOD_SIG based test run that fails - 6
+-------------------------------------------------------------------------------
+Class.tests.cpp:<line number>
+...............................................................................
+
+Class.tests.cpp:<line number>: FAILED:
+  REQUIRE( Nttp_Fixture<V>::value == 0 )
+with expansion:
+  6 == 0
 
 -------------------------------------------------------------------------------
 A TEST_CASE_METHOD based test run that fails
@@ -335,12 +522,12 @@ Matchers.tests.cpp:<line number>
 Matchers.tests.cpp:<line number>: FAILED:
   CHECK_THROWS_MATCHES( throws(3), SpecialException, ExceptionMatcher{1} )
 with expansion:
-  {?} special exception has value of 1
+  SpecialException::what special exception has value of 1
 
 Matchers.tests.cpp:<line number>: FAILED:
   REQUIRE_THROWS_MATCHES( throws(4), SpecialException, ExceptionMatcher{1} )
 with expansion:
-  {?} special exception has value of 1
+  SpecialException::what special exception has value of 1
 
 -------------------------------------------------------------------------------
 Expected exceptions that don't throw or unexpected exceptions fail the test
@@ -390,8 +577,7 @@ Message.tests.cpp:<line number>: FAILED:
 explicitly with message:
   This is a failure
 
-Message.tests.cpp:<line number>:
-warning:
+Message.tests.cpp:<line number>: warning:
   This message appears in the output
 
 -------------------------------------------------------------------------------
@@ -400,8 +586,7 @@ INFO and WARN do not abort tests
 Message.tests.cpp:<line number>
 ...............................................................................
 
-Message.tests.cpp:<line number>:
-warning:
+Message.tests.cpp:<line number>: warning:
   this is a warning
 
 -------------------------------------------------------------------------------
@@ -526,8 +711,7 @@ Nice descriptive name
 Misc.tests.cpp:<line number>
 ...............................................................................
 
-Misc.tests.cpp:<line number>:
-warning:
+Misc.tests.cpp:<line number>: warning:
   This one ran
 
 -------------------------------------------------------------------------------
@@ -739,6 +923,16 @@ with expansion:
   "
 
 -------------------------------------------------------------------------------
+Thrown string literals are translated
+-------------------------------------------------------------------------------
+Exception.tests.cpp:<line number>
+...............................................................................
+
+Exception.tests.cpp:<line number>: FAILED:
+due to unexpected exception with message:
+  For some reason someone is throwing a string literal!
+
+-------------------------------------------------------------------------------
 Unexpected exceptions can be translated
 -------------------------------------------------------------------------------
 Exception.tests.cpp:<line number>
@@ -747,6 +941,30 @@ Exception.tests.cpp:<line number>
 Exception.tests.cpp:<line number>: FAILED:
 due to unexpected exception with message:
   3.14
+
+-------------------------------------------------------------------------------
+Vector Approx matcher -- failing
+  Empty and non empty vectors are not approx equal
+-------------------------------------------------------------------------------
+Matchers.tests.cpp:<line number>
+...............................................................................
+
+Matchers.tests.cpp:<line number>: FAILED:
+  CHECK_THAT( empty, Approx(t1) )
+with expansion:
+  {  } is approx: { 1.0, 2.0 }
+
+-------------------------------------------------------------------------------
+Vector Approx matcher -- failing
+  Just different vectors
+-------------------------------------------------------------------------------
+Matchers.tests.cpp:<line number>
+...............................................................................
+
+Matchers.tests.cpp:<line number>: FAILED:
+  CHECK_THAT( v1, Approx(v2) )
+with expansion:
+  { 2.0, 4.0, 6.0 } is approx: { 1.0, 3.0, 5.0 }
 
 -------------------------------------------------------------------------------
 Vector matchers that fail
@@ -897,8 +1115,7 @@ Where the LHS is not a simple value
 Tricky.tests.cpp:<line number>
 ...............................................................................
 
-Tricky.tests.cpp:<line number>:
-warning:
+Tricky.tests.cpp:<line number>: warning:
   Uncomment the code in this test to check that it gives a sensible compiler
   error
 
@@ -908,8 +1125,7 @@ Where there is more to the expression after the RHS
 Tricky.tests.cpp:<line number>
 ...............................................................................
 
-Tricky.tests.cpp:<line number>:
-warning:
+Tricky.tests.cpp:<line number>: warning:
   Uncomment the code in this test to check that it gives a sensible compiler
   error
 
@@ -957,8 +1173,18 @@ explicitly with message:
   Previous info should not be seen
 
 -------------------------------------------------------------------------------
+just failure after unscoped info
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: FAILED:
+explicitly with message:
+  previous unscoped info SHOULD not be seen
+
+-------------------------------------------------------------------------------
 looped SECTION tests
-  s1
+  b is currently: 0
 -------------------------------------------------------------------------------
 Misc.tests.cpp:<line number>
 ...............................................................................
@@ -967,6 +1193,18 @@ Misc.tests.cpp:<line number>: FAILED:
   CHECK( b > a )
 with expansion:
   0 > 1
+
+-------------------------------------------------------------------------------
+looped SECTION tests
+  b is currently: 1
+-------------------------------------------------------------------------------
+Misc.tests.cpp:<line number>
+...............................................................................
+
+Misc.tests.cpp:<line number>: FAILED:
+  CHECK( b > a )
+with expansion:
+  1 > 1
 
 -------------------------------------------------------------------------------
 looped tests
@@ -1017,9 +1255,21 @@ with message:
   Testing if fib[7] (21) is even
 
 -------------------------------------------------------------------------------
+mix info, unscoped info and warning
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: warning:
+  and warn may mix
+
+Message.tests.cpp:<line number>: warning:
+  they are not cleared after warnings
+
+-------------------------------------------------------------------------------
 more nested SECTION tests
-  s1
-  s2
+  doesn't equal
+  equal
 -------------------------------------------------------------------------------
 Misc.tests.cpp:<line number>
 ...............................................................................
@@ -1028,6 +1278,40 @@ Misc.tests.cpp:<line number>: FAILED:
   REQUIRE( a == b )
 with expansion:
   1 == 2
+
+-------------------------------------------------------------------------------
+not prints unscoped info from previous failures
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: FAILED:
+  REQUIRE( false )
+with message:
+  this SHOULD be seen
+
+-------------------------------------------------------------------------------
+prints unscoped info on failure
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: FAILED:
+  REQUIRE( false )
+with messages:
+  this SHOULD be seen
+  this SHOULD also be seen
+
+-------------------------------------------------------------------------------
+prints unscoped info only for the first assertion
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: FAILED:
+  CHECK( false )
+with message:
+  this SHOULD be seen only ONCE
 
 -------------------------------------------------------------------------------
 send a single char to INFO
@@ -1053,6 +1337,28 @@ with messages:
   i := 7
 
 -------------------------------------------------------------------------------
+stacks unscoped info in loops
+-------------------------------------------------------------------------------
+Message.tests.cpp:<line number>
+...............................................................................
+
+Message.tests.cpp:<line number>: FAILED:
+  CHECK( false )
+with messages:
+  Count 1 to 3...
+  1
+  2
+  3
+
+Message.tests.cpp:<line number>: FAILED:
+  CHECK( false )
+with messages:
+  Count 4 to 6...
+  4
+  5
+  6
+
+-------------------------------------------------------------------------------
 string literals of different sizes can be compared
 -------------------------------------------------------------------------------
 Tricky.tests.cpp:<line number>
@@ -1063,7 +1369,17 @@ Tricky.tests.cpp:<line number>: FAILED:
 with expansion:
   "first" == "second"
 
+-------------------------------------------------------------------------------
+thrown std::strings are translated
+-------------------------------------------------------------------------------
+Exception.tests.cpp:<line number>
+...............................................................................
+
+Exception.tests.cpp:<line number>: FAILED:
+due to unexpected exception with message:
+  Why would you throw a std::string?
+
 ===============================================================================
-test cases: 198 | 147 passed |  47 failed |  4 failed as expected
-assertions: 999 | 873 passed | 105 failed | 21 failed as expected
+test cases:  298 |  224 passed |  70 failed |  4 failed as expected
+assertions: 1553 | 1401 passed | 131 failed | 21 failed as expected
 

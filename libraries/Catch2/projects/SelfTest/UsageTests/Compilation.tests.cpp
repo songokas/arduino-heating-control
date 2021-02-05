@@ -5,7 +5,34 @@
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+#include <type_traits>
+
+// Setup for #1403 -- look for global overloads of operator << for classes
+// in a different namespace.
+#include <ostream>
+
+namespace foo {
+    struct helper_1403 {
+        bool operator==(helper_1403) const { return true; }
+    };
+}
+
+namespace bar {
+    template <typename... Ts>
+    struct TypeList {};
+}
+
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wmissing-declarations"
+#endif
+std::ostream& operator<<(std::ostream& out, foo::helper_1403 const&) {
+    return out << "[1403 helper]";
+}
+///////////////////////////////
+
 #include "catch.hpp"
+
+#include <cstring>
 
 namespace { namespace CompilationTests {
 
@@ -86,6 +113,9 @@ namespace { namespace CompilationTests {
 #pragma clang diagnostic pop
 #endif
 
+    template <typename, typename>
+    struct Fixture_1245 {};
+
 #endif
 
     TEST_CASE("#809") {
@@ -134,4 +164,61 @@ namespace { namespace CompilationTests {
         REQUIRE(t1 >= t2);
     }
 
+    // unsigned array
+    TEST_CASE("#1238") {
+        unsigned char uarr[] = "123";
+        CAPTURE(uarr);
+        signed char sarr[] = "456";
+        CAPTURE(sarr);
+
+        REQUIRE(std::memcmp(uarr, "123", sizeof(uarr)) == 0);
+        REQUIRE(std::memcmp(sarr, "456", sizeof(sarr)) == 0);
+    }
+
+    TEST_CASE_METHOD((Fixture_1245<int, int>), "#1245", "[compilation]") {
+        SUCCEED();
+    }
+
+    TEST_CASE("#1403", "[compilation]") {
+        ::foo::helper_1403 h1, h2;
+        REQUIRE(h1 == h2);
+    }
+
+    TEST_CASE("Optionally static assertions", "[compilation]") {
+        STATIC_REQUIRE( std::is_void<void>::value );
+        STATIC_REQUIRE_FALSE( std::is_void<int>::value );
+    }
+
+    TEST_CASE("#1548", "[compilation]") {
+        using namespace bar;
+        REQUIRE(std::is_same<TypeList<int>, TypeList<int>>::value);
+    }
+
+    // #925
+    using signal_t = void (*) (void*);
+
+    struct TestClass {
+        signal_t testMethod_uponComplete_arg = nullptr;
+    };
+
+    namespace utility {
+        inline static void synchronizing_callback( void * ) { }
+    }
+
+    TEST_CASE("#925: comparing function pointer to function address failed to compile", "[!nonportable]" ) {
+        TestClass test;
+        REQUIRE(utility::synchronizing_callback != test.testMethod_uponComplete_arg);
+    }
+
+    TEST_CASE( "#1027: Bitfields can be captured" ) {
+        struct Y {
+            uint32_t v : 1;
+        };
+        Y y{ 0 };
+        REQUIRE( y.v == 0 );
+        REQUIRE( 0 == y.v );
+    }
+
+
 }} // namespace CompilationTests
+

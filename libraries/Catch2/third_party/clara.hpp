@@ -5,7 +5,7 @@
 //
 // See https://github.com/philsquared/Clara for more details
 
-// Clara v1.1.2
+// Clara v1.1.5
 
 #ifndef CLARA_HPP_INCLUDED
 #define CLARA_HPP_INCLUDED
@@ -18,14 +18,24 @@
 #define CLARA_TEXTFLOW_CONFIG_CONSOLE_WIDTH CLARA_CONFIG_CONSOLE_WIDTH
 #endif
 
+#ifndef CLARA_CONFIG_OPTIONAL_TYPE
+#ifdef __has_include
+#if __has_include(<optional>) && __cplusplus >= 201703L
+#include <optional>
+#define CLARA_CONFIG_OPTIONAL_TYPE std::optional
+#endif
+#endif
+#endif
+
+
 // ----------- #included from clara_textflow.hpp -----------
 
 // TextFlowCpp
 //
 // A single-header library for wrapping and laying out basic text, by Phil Nash
 //
-// This work is licensed under the BSD 2-Clause license.
-// See the accompanying LICENSE file, or the one at https://opensource.org/licenses/BSD-2-Clause
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 // This project is hosted at https://github.com/philsquared/textflowcpp
 
@@ -100,6 +110,9 @@ namespace clara { namespace TextFlow {
                 m_suffix = false;
                 auto width = m_column.m_width-indent();
                 m_end = m_pos;
+                if (line()[m_pos] == '\n') {
+                    ++m_end;
+                }
                 while( m_end < line().size() && line()[m_end] != '\n' )
                     ++m_end;
 
@@ -132,6 +145,12 @@ namespace clara { namespace TextFlow {
             }
 
         public:
+            using difference_type = std::ptrdiff_t;
+            using value_type = std::string;
+            using pointer = value_type*;
+            using reference = value_type&;
+            using iterator_category = std::forward_iterator_tag;
+
             explicit iterator( Column const& column ) : m_column( column ) {
                 assert( m_column.m_width > m_column.m_indent );
                 assert( m_column.m_initialIndent == std::string::npos || m_column.m_width > m_column.m_initialIndent );
@@ -143,10 +162,7 @@ namespace clara { namespace TextFlow {
             auto operator *() const -> std::string {
                 assert( m_stringIndex < m_column.m_strings.size() );
                 assert( m_pos <= m_end );
-                if( m_pos + m_column.m_width < m_end )
-                    return addIndentAndSuffix(line().substr(m_pos, m_len));
-                else
-                    return addIndentAndSuffix(line().substr(m_pos, m_end - m_pos));
+                return addIndentAndSuffix(line().substr(m_pos, m_len));
             }
 
             auto operator ++() -> iterator& {
@@ -256,6 +272,12 @@ namespace clara { namespace TextFlow {
             }
 
         public:
+            using difference_type = std::ptrdiff_t;
+            using value_type = std::string;
+            using pointer = value_type*;
+            using reference = value_type&;
+            using iterator_category = std::forward_iterator_tag;
+
             explicit iterator( Columns const& columns )
             :   m_columns( columns.m_columns ),
                 m_activeIterators( m_columns.size() )
@@ -345,7 +367,7 @@ namespace clara { namespace TextFlow {
         cols += other;
         return cols;
     }
-}} // namespace clara::TextFlow
+}}
 
 #endif // CLARA_TEXTFLOW_HPP_INCLUDED
 
@@ -389,11 +411,9 @@ namespace detail {
         std::vector<std::string> m_args;
 
     public:
-        Args( int argc, char *argv[] ) {
-            m_exeName = argv[0];
-            for( int i = 1; i < argc; ++i )
-                m_args.push_back( argv[i] );
-        }
+        Args( int argc, char const* const* argv )
+            : m_exeName(argv[0]),
+              m_args(argv + 1, argv + argc) {}
 
         Args( std::initializer_list<std::string> args )
         :   m_exeName( *args.begin() ),
@@ -580,15 +600,13 @@ namespace detail {
 
     protected:
         void enforceOk() const override {
-            // !TBD: If no exceptions, std::terminate here or something
-            switch( m_type ) {
-                case ResultBase::LogicError:
-                    throw std::logic_error( m_errorMessage );
-                case ResultBase::RuntimeError:
-                    throw std::runtime_error( m_errorMessage );
-                case ResultBase::Ok:
-                    break;
-            }
+
+            // Errors shouldn't reach this point, but if they do
+            // the actual error message will be in m_errorMessage
+            assert( m_type != ResultBase::LogicError );
+            assert( m_type != ResultBase::RuntimeError );
+            if( m_type != ResultBase::Ok )
+                std::abort();
         }
 
         std::string m_errorMessage; // Only populated if resultType is an error
@@ -658,6 +676,16 @@ namespace detail {
             return ParserResult::runtimeError( "Expected a boolean value but did not recognise: '" + source + "'" );
         return ParserResult::ok( ParseResultType::Matched );
     }
+#ifdef CLARA_CONFIG_OPTIONAL_TYPE
+    template<typename T>
+    inline auto convertInto( std::string const &source, CLARA_CONFIG_OPTIONAL_TYPE<T>& target ) -> ParserResult {
+        T temp;
+        auto result = convertInto( source, temp );
+        if( result )
+            target = std::move(temp);
+        return result;
+    }
+#endif // CLARA_CONFIG_OPTIONAL_TYPE
 
     struct NonCopyable {
         NonCopyable() = default;

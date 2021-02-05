@@ -29,13 +29,13 @@ struct MyListener : Catch::TestEventListenerBase {
 
     using TestEventListenerBase::TestEventListenerBase; // inherit constructor
 
-    virtual void testCaseStarting( Catch::TestCaseInfo const& testInfo ) override {
+    void testCaseStarting( Catch::TestCaseInfo const& testInfo ) override {
         // Perform some setup before a test case is run
     }
     
-    virtual void testCaseEnded( Catch::TestCaseStats const& testCaseStats ) override {
+    void testCaseEnded( Catch::TestCaseStats const& testCaseStats ) override {
         // Tear-down after a test case is run
-    }    
+    }
 };
 CATCH_REGISTER_LISTENER( MyListener )
 ```
@@ -44,7 +44,7 @@ _Note that you should not use any assertion macros within a Listener!_
 
 ## Events that can be hooked
 
-The following are the methods that can be overriden in the Listener:
+The following are the methods that can be overridden in the Listener:
 
 ```c++
 // The whole test run, starting and ending

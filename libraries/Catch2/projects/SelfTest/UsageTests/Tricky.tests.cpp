@@ -19,26 +19,7 @@
 
 #include <stdio.h>
 #include <sstream>
-
-namespace Catch {
-    std::string toString( const std::pair<int, int>& value ) {
-        std::ostringstream oss;
-        oss << "std::pair( " << value.first << ", " << value.second << " )";
-        return oss.str();
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-TEST_CASE
-(
-    "Parsing a std::pair",
-    "[Tricky][std::pair]"
-)
-{
-    std::pair<int, int> aNicePair( 1, 2 );
-
-    REQUIRE( (std::pair<int, int>( 1, 2 )) == aNicePair );
-}
+#include <iostream>
 
 ///////////////////////////////////////////////////////////////////////////////
 TEST_CASE
@@ -175,7 +156,7 @@ namespace ObjectWithConversions
     ///////////////////////////////////////////////////////////////////////////////
     TEST_CASE
     (
-        "Operators at different namespace levels not hijacked by Koenig lookup",
+        "Implicit conversions are supported inside assertion macros",
         "[Tricky][approvals]"
     )
     {
@@ -232,28 +213,28 @@ struct is_true
 
 TEST_CASE( "(unimplemented) static bools can be evaluated", "[Tricky]" )
 {
-    SECTION("compare to true","")
+    SECTION("compare to true")
     {
         REQUIRE( is_true<true>::value == true );
         REQUIRE( true == is_true<true>::value );
     }
-    SECTION("compare to false","")
+    SECTION("compare to false")
     {
         REQUIRE( is_true<false>::value == false );
         REQUIRE( false == is_true<false>::value );
     }
 
-    SECTION("negation", "")
+    SECTION("negation")
     {
         REQUIRE( !is_true<false>::value );
     }
 
-    SECTION("double negation","")
+    SECTION("double negation")
     {
         REQUIRE( !!is_true<true>::value );
     }
 
-    SECTION("direct","")
+    SECTION("direct")
     {
         REQUIRE( is_true<true>::value );
         REQUIRE_FALSE( is_true<false>::value );
@@ -421,28 +402,9 @@ TEST_CASE( "non-copyable objects", "[.][failing]" ) {
     CHECK( ti == typeid(int) );
 }
 
-// #925
-using signal_t = void (*) (void*);
-
-struct TestClass {
-    signal_t testMethod_uponComplete_arg = nullptr;
-};
-
-namespace utility {
-    inline static void synchronizing_callback( void * ) { }
-}
-
-TEST_CASE("#925: comparing function pointer to function address failed to compile", "[!nonportable]" ) {
-
-    TestClass test;
-    REQUIRE(utility::synchronizing_callback != test.testMethod_uponComplete_arg);
-}
-
-TEST_CASE( "Bitfields can be captured (#1027)" ) {
-    struct Y {
-        uint32_t v : 1;
-    };
-    Y y{ 0 };
-    REQUIRE( y.v == 0 );
-    REQUIRE( 0 == y.v );
+TEST_CASE("#1514: stderr/stdout is not captured in tests aborted by an exception", "[output-capture][regression][.]") {
+    std::cout << "This would not be caught previously\n" << std::flush;
+    std::clog << "Nor would this\n" << std::flush;
+    // FAIL aborts the test by throwing a Catch exception
+    FAIL("1514");
 }

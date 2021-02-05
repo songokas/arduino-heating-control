@@ -45,12 +45,40 @@ Each of the provided `std::string` matchers also takes an optional second argume
 
 
 ### Vector matchers
-The vector matchers are `Contains`, `VectorContains` and `Equals`. `VectorContains` looks for a single element in the matched vector, `Contains` looks for a set (vector) of elements inside the matched vector.
+Catch2 currently provides 5 built-in matchers that work on `std::vector`.
+These are
+
+ * `Contains` which checks whether a specified vector is present in the result
+ * `VectorContains` which checks whether a specified element is present in the result
+ * `Equals` which checks whether the result is exactly equal (order matters) to a specific vector
+ * `UnorderedEquals` which checks whether the result is equal to a specific vector under a permutation
+ * `Approx` which checks whether the result is "approx-equal" (order matters, but comparison is done via `Approx`) to a specific vector
+> Approx matcher was [introduced](https://github.com/catchorg/Catch2/issues/1499) in Catch 2.7.2.
+
 
 ### Floating point matchers
 The floating point matchers are `WithinULP` and `WithinAbs`. `WithinAbs` accepts floating point numbers that are within a certain margin of target. `WithinULP` performs an [ULP](https://en.wikipedia.org/wiki/Unit_in_the_last_place)-based comparison of two floating point numbers and accepts them if they are less than certain number of ULPs apart.
 
 Do note that ULP-based checks only make sense when both compared numbers are of the same type and `WithinULP` will use type of its argument as the target type. This means that `WithinULP(1.f, 1)` will expect to compare `float`s, but `WithinULP(1., 1)` will expect to compare `double`s.
+
+
+### Generic matchers
+Catch also aims to provide a set of generic matchers. Currently this set
+contains only a matcher that takes arbitrary callable predicate and applies
+it onto the provided object.
+
+Because of type inference limitations, the argument type of the predicate
+has to be provided explicitly. Example:
+```cpp
+REQUIRE_THAT("Hello olleH",
+             Predicate<std::string>(
+                 [] (std::string const& str) -> bool { return str.front() == str.back(); },
+                 "First and last character should be equal")
+);
+```
+
+The second argument is an optional description of the predicate, and is
+used only during reporting of the result.
 
 
 ## Custom matchers
@@ -73,7 +101,7 @@ public:
     IntRange( int begin, int end ) : m_begin( begin ), m_end( end ) {}
 
     // Performs the test for this matcher
-    virtual bool match( int const& i ) const override {
+    bool match( int const& i ) const override {
         return i >= m_begin && i <= m_end;
     }
 
@@ -81,7 +109,7 @@ public:
     // include any provided data (the begin/ end in this case) and
     // be written as if it were stating a fact (in the output it will be
     // preceded by the value under test).
-    virtual std::string describe() const {
+    virtual std::string describe() const override {
         std::ostringstream ss;
         ss << "is between " << m_begin << " and " << m_end;
         return ss.str();

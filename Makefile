@@ -16,5 +16,9 @@ clean:
 	cd master && make clean
 	cd slave && make clean
 	cd sender && make clean
+	rm -rf tests/build
+
+test:
+	cd tests && ./test.sh
 
 .PHONY: master slave sender clean

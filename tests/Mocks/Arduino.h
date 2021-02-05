@@ -32,6 +32,7 @@
 #include <map>
 #include <chrono>
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef unsigned char byte;
 typedef unsigned char uint8_t;
@@ -41,8 +42,12 @@ typedef unsigned int uint32_t;
 //overrides PROGMEM to just use RAM
 #define PROGMEM
 inline uint8_t pgm_read_byte(const uint8_t * _address_short) {return *_address_short;};
+inline uint8_t pgm_read_byte(const char * _address_short) {return *_address_short;};
 inline uint16_t pgm_read_word(const uint16_t * _address_short) {return *_address_short;};
 inline uint32_t pgm_read_dword(const uint32_t * _address_short) {return *_address_short;};
+inline uint32_t pgm_read_dword_near(const uint32_t * _address_short) {return *_address_short;};
+
+#define snprintf_P snprintf
 
 #define HIGH 0x1
 #define LOW  0x0
@@ -65,8 +70,6 @@ void delay(unsigned long ms);
 int analogRead(int);
 void attachInterrupt(int, GeneralCallbackFunction, int);
 int digitalPinToInterrupt(int);
-
-
 
 // WMath.cpp
 long map(long, long, long, long, long);
@@ -99,4 +102,13 @@ unsigned long sysMillis();
 #include "WString.h"
 //#define F(x) (x)
 
+#define MQTT_CLIENT_NAME "test-client1"
+#define ARDUINOJSON_EMBEDDED_MODE 0
+// #define ARDUINOJSON_ENABLE_STD_STRING 1
+// #define ARDUINOJSON_ENABLE_ARDUINO_STRING 0
+// #define ARDUINOJSON_ENABLE_ARDUINO_STREAM 0
+// #define ARDUINO 200
+
 #endif
+
+

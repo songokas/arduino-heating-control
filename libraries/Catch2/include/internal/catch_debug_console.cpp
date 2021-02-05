@@ -9,21 +9,32 @@
 #include "catch_debug_console.h"
 #include "catch_stream.h"
 #include "catch_platform.h"
-
-#ifdef CATCH_PLATFORM_WINDOWS
-
 #include "catch_windows_h_proxy.h"
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+
+    namespace Catch {
+        void writeToDebugConsole( std::string const& text ) {
+            __android_log_print( ANDROID_LOG_DEBUG, "Catch", text.c_str() );
+        }
+    }
+
+#elif defined(CATCH_PLATFORM_WINDOWS)
 
     namespace Catch {
         void writeToDebugConsole( std::string const& text ) {
             ::OutputDebugStringA( text.c_str() );
         }
     }
+
 #else
+
     namespace Catch {
         void writeToDebugConsole( std::string const& text ) {
             // !TBD: Need a version for Mac/ XCode and other IDEs
             Catch::cout() << text;
         }
     }
+
 #endif // Platform

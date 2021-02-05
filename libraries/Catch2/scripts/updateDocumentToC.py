@@ -12,7 +12,6 @@
 #
 
 from  __future__  import print_function
-from scriptCommon import catchPath
 
 import argparse
 import glob
@@ -20,12 +19,14 @@ import os
 import re
 import sys
 
+from scriptCommon import catchPath
+
 # Configuration:
 
 minTocEntries = 4
 
 headingExcludeDefault = [1,3,4,5]  # use level 2 headers for at default
-headingExcludeRelease = [2,3,4,5]  # use level 1 headers for release-notes.md
+headingExcludeRelease = [1,3,4,5]  # use level 1 headers for release-notes.md
 
 documentsDefault = os.path.join(os.path.relpath(catchPath), 'docs/*.md')
 releaseNotesName = 'release-notes.md'
@@ -90,18 +91,20 @@ def dashifyHeadline(line):
     level = len(stripped_right) - len(stripped_both)
     stripped_wspace = stripped_both.strip()
 
-    # character replacements
-    replaced_colon = stripped_wspace.replace('.', '')
-    replaced_slash = replaced_colon.replace('/', '')
-    rem_nonvalids = ''.join([c if c in VALIDS
-                             else '-' for c in replaced_slash])
+    # GitHub's sluggification works in an interesting way
+    # 1) '+', '/', '(', ')' and so on are just removed
+    # 2) spaces are converted into '-' directly
+    # 3) multiple -- are not collapsed
 
-    lowered = rem_nonvalids.lower()
-    dashified = re.sub(r'(-)\1+', r'\1', lowered)  # remove duplicate dashes
-    dashified = dashified.strip('-')  # strip dashes from start and end
-
-    # exception '&' (double-dash in github)
-    dashified = dashified.replace('-&-', '--')
+    dashified = ''
+    for c in stripped_wspace:
+        if c in VALIDS:
+            dashified += c.lower()
+        elif c.isspace():
+            dashified += '-'
+        else:
+            # Unknown symbols are just removed
+            continue
 
     return [stripped_wspace, dashified, level]
 
@@ -127,7 +130,7 @@ def tagAndCollect(lines, id_tag=True, back_links=False, exclude_h=None):
             A list of 3-value sublists, where the first value
             represents the heading, the second value the string
             that was inserted assigned to the IDs in the anchor tags,
-            and the third value is an integer that reprents the headline level.
+            and the third value is an integer that represents the headline level.
             E.g.,
             [['some header lvl3', 'some-header-lvl3', 3], ...]
 
@@ -282,7 +285,7 @@ def markdownToclify(
       input_file: str
         Path to the markdown input file.
 
-      output_file: str (defaul: None)
+      output_file: str (default: None)
         Path to the markdown output file.
 
       min_toc_len: int (default: 2)
@@ -420,7 +423,7 @@ def updateDocumentToCMain():
         default=minTocEntries,
         type=int,
         metavar='N',
-        help='the minimum number of entries to create a table of contents for [{deflt}]'.format(deflt=minTocEntries))
+        help='the minimum number of entries to create a table of contents for [{default}]'.format(default=minTocEntries))
 
     parser.add_argument(
         '--remove-toc',
@@ -431,7 +434,7 @@ def updateDocumentToCMain():
 
     args = parser.parse_args()
 
-    paths = args.Input if len(args.Input) > 0 else [documentsDefault]
+    paths = args.Input if args.Input else [documentsDefault]
 
     changedFiles = updateDocumentToC(paths=paths, min_toc_len=args.minTocEntries, verbose=args.verbose)
 

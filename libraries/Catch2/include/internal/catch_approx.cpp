@@ -7,6 +7,7 @@
  */
 
 #include "catch_approx.h"
+#include "catch_enforce.h"
 
 #include <cmath>
 #include <limits>
@@ -35,6 +36,13 @@ namespace Detail {
         return Approx( 0 );
     }
 
+    Approx Approx::operator-() const {
+        auto temp(*this);
+        temp.m_value = -temp.m_value;
+        return temp;
+    }
+
+
     std::string Approx::toString() const {
         ReusableStringStream rss;
         rss << "Approx( " << ::Catch::Detail::stringify( m_value ) << " )";
@@ -47,7 +55,30 @@ namespace Detail {
         return marginComparison(m_value, other, m_margin) || marginComparison(m_value, other, m_epsilon * (m_scale + std::fabs(m_value)));
     }
 
+    void Approx::setMargin(double newMargin) {
+        CATCH_ENFORCE(newMargin >= 0,
+            "Invalid Approx::margin: " << newMargin << '.'
+            << " Approx::Margin has to be non-negative.");
+        m_margin = newMargin;
+    }
+
+    void Approx::setEpsilon(double newEpsilon) {
+        CATCH_ENFORCE(newEpsilon >= 0 && newEpsilon <= 1.0,
+            "Invalid Approx::epsilon: " << newEpsilon << '.'
+            << " Approx::epsilon has to be in [0, 1]");
+        m_epsilon = newEpsilon;
+    }
+
 } // end namespace Detail
+
+namespace literals {
+    Detail::Approx operator "" _a(long double val) {
+        return Detail::Approx(val);
+    }
+    Detail::Approx operator "" _a(unsigned long long val) {
+        return Detail::Approx(val);
+    }
+} // end namespace literals
 
 std::string StringMaker<Catch::Detail::Approx>::convert(Catch::Detail::Approx const& value) {
     return value.toString();

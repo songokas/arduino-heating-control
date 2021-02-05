@@ -6,10 +6,11 @@
 [Exceptions](#exceptions)<br>
 [Matcher expressions](#matcher-expressions)<br>
 [Thread Safety](#thread-safety)<br>
+[Expressions with commas](#expressions-with-commas)<br>
 
 Most test frameworks have a large collection of assertion macros to capture all possible conditional forms (```_EQUALS```, ```_NOTEQUALS```, ```_GREATER_THAN``` etc).
 
-Catch is different. Because it decomposes natural C-style conditional expressions most of these forms are reduced to one or two that you will use all the time. That said there are a rich set of auxilliary macros as well. We'll describe all of these here.
+Catch is different. Because it decomposes natural C-style conditional expressions most of these forms are reduced to one or two that you will use all the time. That said there is a rich set of auxiliary macros as well. We'll describe all of these here.
 
 Most of these macros come in two forms:
 
@@ -54,33 +55,45 @@ This expression is too complex because of the `||` operator. If you want to chec
 
 When comparing floating point numbers - especially if at least one of them has been computed - great care must be taken to allow for rounding errors and inexact representations.
 
-Catch provides a way to perform tolerant comparisons of floating point values through use of a wrapper class called ```Approx```. ```Approx``` can be used on either side of a comparison expression. It overloads the comparisons operators to take a tolerance into account. Here's a simple example:
+Catch provides a way to perform tolerant comparisons of floating point values through use of a wrapper class called `Approx`. `Approx` can be used on either side of a comparison expression. It overloads the comparisons operators to take a tolerance into account. Here's a simple example:
 
-```
+```cpp
 REQUIRE( performComputation() == Approx( 2.1 ) );
 ```
 
-This way `Approx` is constructed with reasonable defaults, covering most simple cases of rounding errors. If these are insufficient, each `Approx` instance has 3 tuning knobs, that can be used to customize it for your computation.
+Catch also provides a user-defined literal for `Approx`; `_a`. It resides in
+the `Catch::literals` namespace and can be used like so:
+```cpp
+using namespace Catch::literals;
+REQUIRE( performComputation() == 2.1_a );
+```
 
-* __epsilon__ - epsilon serves to set the percentage by which a result can be erroneous, before it is rejected. By default set to `std::numeric_limits<float>::epsilon()*100`.
-* __margin__ - margin serves to set the the absolute value by which a result can be erroneous before it is rejected. By default set to `0.0`.
-* __scale__ - scale serves to adjust the epsilon's multiplicator. By default set to `0.0`.
+`Approx` is constructed with defaults that should cover most simple cases.
+For the more complex cases, `Approx` provides 3 customization points:
+
+* __epsilon__ - epsilon serves to set the coefficient by which a result
+can differ from `Approx`'s value before it is rejected.
+_By default set to `std::numeric_limits<float>::epsilon()*100`._
+* __margin__ - margin serves to set the the absolute value by which
+a result can differ from `Approx`'s value before it is rejected.
+_By default set to `0.0`._
+* __scale__ - scale is used to change the magnitude of `Approx` for relative check.
+_By default set to `0.0`._
 
 #### epsilon example
 ```cpp
 Approx target = Approx(100).epsilon(0.01);
 100.0 == target; // Obviously true
 200.0 == target; // Obviously still false
-100.5 == target; // True, because we set target to allow up to 1% error
+100.5 == target; // True, because we set target to allow up to 1% difference
 ```
 
 #### margin example
-_Margin check is used only if the relative (epsilon and scale based) check fails._
 ```cpp
 Approx target = Approx(100).margin(5);
 100.0 == target; // Obviously true
 200.0 == target; // Obviously still false
-104.0 == target; // True, because we set target to allow absolute error up to 5
+104.0 == target; // True, because we set target to allow absolute difference of at most 5
 ```
 
 #### scale
@@ -123,7 +136,7 @@ REQUIRE_THROWS_WITH( dismantleHal(), "My mind is going" );
 * **REQUIRE_THROWS_MATCHES(** _expression_, _exception type_, _matcher for given exception type_ **)** and
 * **CHECK_THROWS_MATCHES(** _expression_, _exception type_, _matcher for given exception type_ **)**
 
-Expects that exception of _exception type_ is thrown and it matches provided matcher (see next section for Matchers).
+Expects that exception of _exception type_ is thrown and it matches provided matcher (see the [documentation for Matchers](matchers.md#top)).
 
 
 _Please note that the `THROW` family of assertions expects to be passed a single expression, not a statement or series of statements. If you want to check a more complicated sequence of operations, you can use a C++11 lambda function._
@@ -154,6 +167,34 @@ Matchers can be composed using `&&`, `||` and `!` operators.
 
 Currently assertions in Catch are not thread safe.
 For more details, along with workarounds, see the section on [the limitations page](limitations.md#thread-safe-assertions).
+
+## Expressions with commas
+
+Because the preprocessor parses code using different rules than the
+compiler, multiple-argument assertions (e.g. `REQUIRE_THROWS_AS`) have
+problems with commas inside the provided expressions. As an example
+`REQUIRE_THROWS_AS(std::pair<int, int>(1, 2), std::invalid_argument);`
+will fail to compile, because the preprocessor sees 3 arguments provided,
+but the macro accepts only 2. There are two possible workarounds.
+
+1) Use typedef:
+```cpp
+using int_pair = std::pair<int, int>;
+REQUIRE_THROWS_AS(int_pair(1, 2), std::invalid_argument);
+```
+
+This solution is always applicable, but makes the meaning of the code
+less clear.
+
+2) Parenthesize the expression:
+```cpp
+TEST_CASE_METHOD((Fixture<int, int>), "foo", "[bar]") {
+    SUCCEED();
+}
+```
+
+This solution is not always applicable, because it might require extra
+changes on the Catch's side to work.
 
 ---
 

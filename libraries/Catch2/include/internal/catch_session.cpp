@@ -10,6 +10,7 @@
 #include "catch_console_colour.h"
 #include "catch_enforce.h"
 #include "catch_list.h"
+#include "catch_context.h"
 #include "catch_run_context.h"
 #include "catch_stream.h"
 #include "catch_test_spec.h"
@@ -18,9 +19,14 @@
 #include "catch_random_number_generator.h"
 #include "catch_startup_exception_registry.h"
 #include "catch_text.h"
+#include "catch_stream.h"
+#include "catch_windows_h_proxy.h"
+#include "../reporters/catch_reporter_listening.h"
 
 #include <cstdlib>
 #include <iomanip>
+#include <set>
+#include <iterator>
 
 namespace Catch {
 
@@ -34,55 +40,73 @@ namespace Catch {
             return reporter;
         }
 
-#ifndef CATCH_CONFIG_DEFAULT_REPORTER
-#define CATCH_CONFIG_DEFAULT_REPORTER "console"
-#endif
-
         IStreamingReporterPtr makeReporter(std::shared_ptr<Config> const& config) {
-            auto const& reporterNames = config->getReporterNames();
-            if (reporterNames.empty())
-                return createReporter(CATCH_CONFIG_DEFAULT_REPORTER, config);
-
-            IStreamingReporterPtr reporter;
-            for (auto const& name : reporterNames)
-                addReporter(reporter, createReporter(name, config));
-            return reporter;
-        }
-
-#undef CATCH_CONFIG_DEFAULT_REPORTER
-
-        void addListeners(IStreamingReporterPtr& reporters, IConfigPtr const& config) {
-            auto const& listeners = Catch::getRegistryHub().getReporterRegistry().getListeners();
-            for (auto const& listener : listeners)
-                addReporter(reporters, listener->create(Catch::ReporterConfig(config)));
-        }
-
-
-        Catch::Totals runTests(std::shared_ptr<Config> const& config) {
-            IStreamingReporterPtr reporter = makeReporter(config);
-            addListeners(reporter, config);
-
-            RunContext context(config, std::move(reporter));
-
-            Totals totals;
-
-            context.testGroupStarting(config->name(), 1, 1);
-
-            TestSpec testSpec = config->testSpec();
-            if (!testSpec.hasFilters())
-                testSpec = TestSpecParser(ITagAliasRegistry::get()).parse("~[.]").testSpec(); // All not hidden tests
-
-            auto const& allTestCases = getAllTestCasesSorted(*config);
-            for (auto const& testCase : allTestCases) {
-                if (!context.aborting() && matchTest(testCase, testSpec, *config))
-                    totals += context.runTest(testCase);
-                else
-                    context.reporter().skipTest(testCase);
+            if (Catch::getRegistryHub().getReporterRegistry().getListeners().empty()) {
+                return createReporter(config->getReporterName(), config);
             }
 
-            context.testGroupEnded(config->name(), totals, 1, 1);
-            return totals;
+            // On older platforms, returning std::unique_ptr<ListeningReporter>
+            // when the return type is std::unique_ptr<IStreamingReporter>
+            // doesn't compile without a std::move call. However, this causes
+            // a warning on newer platforms. Thus, we have to work around
+            // it a bit and downcast the pointer manually.
+            auto ret = std::unique_ptr<IStreamingReporter>(new ListeningReporter);
+            auto& multi = static_cast<ListeningReporter&>(*ret);
+            auto const& listeners = Catch::getRegistryHub().getReporterRegistry().getListeners();
+            for (auto const& listener : listeners) {
+                multi.addListener(listener->create(Catch::ReporterConfig(config)));
+            }
+            multi.addReporter(createReporter(config->getReporterName(), config));
+            return ret;
         }
+
+        class TestGroup {
+        public:
+            explicit TestGroup(std::shared_ptr<Config> const& config)
+            : m_config{config}
+            , m_context{config, makeReporter(config)}
+            {
+                auto const& allTestCases = getAllTestCasesSorted(*m_config);
+                m_matches = m_config->testSpec().matchesByFilter(allTestCases, *m_config);
+
+                if (m_matches.empty()) {
+                    for (auto const& test : allTestCases)
+                        if (!test.isHidden())
+                            m_tests.emplace(&test);
+                } else {
+                    for (auto const& match : m_matches)
+                        m_tests.insert(match.tests.begin(), match.tests.end());
+                }
+            }
+
+            Totals execute() {
+                Totals totals;
+                m_context.testGroupStarting(m_config->name(), 1, 1);
+                for (auto const& testCase : m_tests) {
+                    if (!m_context.aborting())
+                        totals += m_context.runTest(*testCase);
+                    else
+                        m_context.reporter().skipTest(*testCase);
+                }
+
+                for (auto const& match : m_matches) {
+                    if (match.tests.empty()) {
+                        m_context.reporter().noMatchingTestCases(match.name);
+                        totals.error = -1;
+                    }
+                }
+                m_context.testGroupEnded(m_config->name(), totals, 1, 1);
+                return totals;
+            }
+
+        private:
+            using Tests = std::set<TestCase const*>;
+
+            std::shared_ptr<Config> m_config;
+            RunContext m_context;
+            Tests m_tests;
+            TestSpec::Matches m_matches;
+        };
 
         void applyFilenamesAsTags(Catch::IConfig const& config) {
             auto& tests = const_cast<std::vector<TestCase>&>(getAllTestCasesSorted(config));
@@ -111,15 +135,20 @@ namespace Catch {
     Session::Session() {
         static bool alreadyInstantiated = false;
         if( alreadyInstantiated ) {
-            try         { CATCH_INTERNAL_ERROR( "Only one instance of Catch::Session can ever be used" ); }
-            catch(...)  { getMutableRegistryHub().registerStartupException(); }
+            CATCH_TRY { CATCH_INTERNAL_ERROR( "Only one instance of Catch::Session can ever be used" ); }
+            CATCH_CATCH_ALL { getMutableRegistryHub().registerStartupException(); }
         }
 
+        // There cannot be exceptions at startup in no-exception mode.
+#if !defined(CATCH_CONFIG_DISABLE_EXCEPTIONS)
         const auto& exceptions = getRegistryHub().getStartupExceptionRegistry().getExceptions();
         if ( !exceptions.empty() ) {
+            config();
+            getCurrentMutableContext().setConfig(m_config);
+
             m_startupExceptions = true;
             Colour colourGuard( Colour::Red );
-            Catch::cerr() << "Errors occured during startup!" << '\n';
+            Catch::cerr() << "Errors occurred during startup!" << '\n';
             // iterate over all exceptions and notify user
             for ( const auto& ex_ptr : exceptions ) {
                 try {
@@ -129,6 +158,7 @@ namespace Catch {
                 }
             }
         }
+#endif
 
         alreadyInstantiated = true;
         m_cli = makeCommandLineParser( m_configData );
@@ -151,12 +181,14 @@ namespace Catch {
                 << std::left << std::setw(16) << "version: " << libraryVersion() << std::endl;
     }
 
-    int Session::applyCommandLine( int argc, char* argv[] ) {
+    int Session::applyCommandLine( int argc, char const * const * argv ) {
         if( m_startupExceptions )
             return 1;
 
         auto result = m_cli.parse( clara::Args( argc, argv ) );
         if( !result ) {
+            config();
+            getCurrentMutableContext().setConfig(m_config);
             Catch::cerr()
                 << Colour( Colour::Red )
                 << "\nError(s) in input:\n"
@@ -174,22 +206,8 @@ namespace Catch {
         return 0;
     }
 
-    void Session::useConfigData( ConfigData const& configData ) {
-        m_configData = configData;
-        m_config.reset();
-    }
-
-    int Session::run( int argc, char* argv[] ) {
-        if( m_startupExceptions )
-            return 1;
-        int returnCode = applyCommandLine( argc, argv );
-        if( returnCode == 0 )
-            returnCode = run();
-        return returnCode;
-    }
-
-#if defined(WIN32) && defined(UNICODE)
-    int Session::run( int argc, wchar_t* const argv[] ) {
+#if defined(CATCH_CONFIG_WCHAR) && defined(_WIN32) && defined(UNICODE)
+    int Session::applyCommandLine( int argc, wchar_t const * const * argv ) {
 
         char **utf8Argv = new char *[ argc ];
 
@@ -201,7 +219,7 @@ namespace Catch {
             WideCharToMultiByte( CP_UTF8, 0, argv[i], -1, utf8Argv[i], bufSize, NULL, NULL );
         }
 
-        int returnCode = run( argc, utf8Argv );
+        int returnCode = applyCommandLine( argc, utf8Argv );
 
         for ( int i = 0; i < argc; ++i )
             delete [] utf8Argv[ i ];
@@ -211,6 +229,12 @@ namespace Catch {
         return returnCode;
     }
 #endif
+
+    void Session::useConfigData( ConfigData const& configData ) {
+        m_configData = configData;
+        m_config.reset();
+    }
+
     int Session::run() {
         if( ( m_configData.waitForKeypress & WaitForKeypress::BeforeStart ) != 0 ) {
             Catch::cout() << "...waiting for enter/ return before starting" << std::endl;
@@ -243,11 +267,11 @@ namespace Catch {
         if( m_startupExceptions )
             return 1;
 
-        if( m_configData.showHelp || m_configData.libIdentify )
+        if (m_configData.showHelp || m_configData.libIdentify) {
             return 0;
+        }
 
-        try
-        {
+        CATCH_TRY {
             config(); // Force config to be constructed
 
             seedRng( *m_config );
@@ -256,18 +280,26 @@ namespace Catch {
                 applyFilenamesAsTags( *m_config );
 
             // Handle list request
-            if( Option<std::size_t> listed = list( config() ) )
+            if( Option<std::size_t> listed = list( m_config ) )
                 return static_cast<int>( *listed );
+
+            TestGroup tests { m_config };
+            auto const totals = tests.execute();
+
+            if( m_config->warnAboutNoTests() && totals.error == -1 )
+                return 2;
 
             // Note that on unices only the lower 8 bits are usually used, clamping
             // the return value to 255 prevents false negative when some multiple
             // of 256 tests has failed
-            return (std::min)( MaxExitCode, static_cast<int>( runTests( m_config ).assertions.failed ) );
+            return (std::min) (MaxExitCode, (std::max) (totals.error, static_cast<int>(totals.assertions.failed)));
         }
+#if !defined(CATCH_CONFIG_DISABLE_EXCEPTIONS)
         catch( std::exception& ex ) {
             Catch::cerr() << ex.what() << std::endl;
             return MaxExitCode;
         }
+#endif
     }
 
 } // end namespace Catch

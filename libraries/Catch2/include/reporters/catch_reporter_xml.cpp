@@ -24,6 +24,7 @@ namespace Catch {
         m_xml(_config.stream())
     {
         m_reporterPrefs.shouldRedirectStdOut = true;
+        m_reporterPrefs.shouldReportAllAssertions = true;
     }
 
     XmlReporter::~XmlReporter() = default;
@@ -54,6 +55,11 @@ namespace Catch {
         m_xml.startElement( "Catch" );
         if( !m_config->name().empty() )
             m_xml.writeAttribute( "name", m_config->name() );
+        if (m_config->testSpec().hasFilters())
+            m_xml.writeAttribute( "filters", serializeFilters( m_config->getTestsOrTags() ) );
+        if( m_config->rngSeed() != 0 )
+            m_xml.scopedElement( "Randomness" )
+                .writeAttribute( "seed", m_config->rngSeed() );
     }
 
     void XmlReporter::testGroupStarting( GroupInfo const& groupInfo ) {
@@ -80,8 +86,7 @@ namespace Catch {
         StreamingReporterBase::sectionStarting( sectionInfo );
         if( m_sectionDepth++ > 0 ) {
             m_xml.startElement( "Section" )
-                .writeAttribute( "name", trim( sectionInfo.name ) )
-                .writeAttribute( "description", sectionInfo.description );
+                .writeAttribute( "name", trim( sectionInfo.name ) );
             writeSourceInfo( sectionInfo.lineInfo );
             m_xml.ensureTagClosed();
         }
@@ -213,6 +218,51 @@ namespace Catch {
             .writeAttribute( "expectedFailures", testRunStats.totals.assertions.failedButOk );
         m_xml.endElement();
     }
+
+#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
+    void XmlReporter::benchmarkPreparing(std::string const& name) {
+        m_xml.startElement("BenchmarkResults")
+            .writeAttribute("name", name);
+    }
+
+    void XmlReporter::benchmarkStarting(BenchmarkInfo const &info) {
+        m_xml.writeAttribute("samples", info.samples)
+            .writeAttribute("resamples", info.resamples)
+            .writeAttribute("iterations", info.iterations)
+            .writeAttribute("clockResolution", static_cast<uint64_t>(info.clockResolution))
+            .writeAttribute("estimatedDuration", static_cast<uint64_t>(info.estimatedDuration))
+            .writeComment("All values in nano seconds");
+    }
+
+    void XmlReporter::benchmarkEnded(BenchmarkStats<> const& benchmarkStats) {
+        m_xml.startElement("mean")
+            .writeAttribute("value", static_cast<uint64_t>(benchmarkStats.mean.point.count()))
+            .writeAttribute("lowerBound", static_cast<uint64_t>(benchmarkStats.mean.lower_bound.count()))
+            .writeAttribute("upperBound", static_cast<uint64_t>(benchmarkStats.mean.upper_bound.count()))
+            .writeAttribute("ci", benchmarkStats.mean.confidence_interval);
+        m_xml.endElement();
+        m_xml.startElement("standardDeviation")
+            .writeAttribute("value", benchmarkStats.standardDeviation.point.count())
+            .writeAttribute("lowerBound", benchmarkStats.standardDeviation.lower_bound.count())
+            .writeAttribute("upperBound", benchmarkStats.standardDeviation.upper_bound.count())
+            .writeAttribute("ci", benchmarkStats.standardDeviation.confidence_interval);
+        m_xml.endElement();
+        m_xml.startElement("outliers")
+            .writeAttribute("variance", benchmarkStats.outlierVariance)
+            .writeAttribute("lowMild", benchmarkStats.outliers.low_mild)
+            .writeAttribute("lowSevere", benchmarkStats.outliers.low_severe)
+            .writeAttribute("highMild", benchmarkStats.outliers.high_mild)
+            .writeAttribute("highSevere", benchmarkStats.outliers.high_severe);
+        m_xml.endElement();
+        m_xml.endElement();
+    }
+
+    void XmlReporter::benchmarkFailed(std::string const &error) {
+        m_xml.scopedElement("failed").
+            writeAttribute("message", error);
+        m_xml.endElement();
+    }
+#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
 
     CATCH_REGISTER_REPORTER( "xml", XmlReporter )
 

@@ -18,6 +18,7 @@
 #include <cerrno>
 #include <limits>
 #include <sstream>
+#include <array>
 
 namespace { namespace MiscTests {
 
@@ -61,18 +62,27 @@ CATCH_INTERNAL_SUPPRESS_GLOBALS_WARNINGS
 static AutoTestReg autoTestReg;
 CATCH_INTERNAL_UNSUPPRESS_GLOBALS_WARNINGS
 
+template<typename T>
+struct Foo {
+    size_t size() { return 0; }
+};
+
+template<typename T, size_t S>
+struct Bar {
+    size_t size() { return S; }
+};
 #endif
 
 TEST_CASE( "random SECTION tests", "[.][sections][failing]" ) {
     int a = 1;
     int b = 2;
 
-    SECTION( "s1", "doesn't equal" ) {
+    SECTION( "doesn't equal" ) {
         REQUIRE( a != b );
         REQUIRE( b != a );
     }
 
-    SECTION( "s2", "not equal" ) {
+    SECTION( "not equal" ) {
         REQUIRE( a != b);
     }
 }
@@ -81,11 +91,11 @@ TEST_CASE( "nested SECTION tests", "[.][sections][failing]" ) {
     int a = 1;
     int b = 2;
 
-    SECTION( "s1", "doesn't equal" ) {
+    SECTION( "doesn't equal" ) {
         REQUIRE( a != b );
         REQUIRE( b != a );
 
-        SECTION( "s2", "not equal" ) {
+        SECTION( "not equal" ) {
             REQUIRE( a != b);
         }
     }
@@ -95,15 +105,15 @@ TEST_CASE( "more nested SECTION tests", "[sections][failing][.]" ) {
     int a = 1;
     int b = 2;
 
-    SECTION( "s1", "doesn't equal" ) {
-        SECTION( "s2", "equal" ) {
+    SECTION( "doesn't equal" ) {
+        SECTION( "equal" ) {
             REQUIRE( a == b );
         }
 
-        SECTION( "s3", "not equal" ) {
+        SECTION( "not equal" ) {
             REQUIRE( a != b );
         }
-        SECTION( "s4", "less than" ) {
+        SECTION( "less than" ) {
             REQUIRE( a < b );
         }
     }
@@ -112,16 +122,16 @@ TEST_CASE( "more nested SECTION tests", "[sections][failing][.]" ) {
 TEST_CASE( "even more nested SECTION tests", "[sections]" ) {
     SECTION( "c" ) {
         SECTION( "d (leaf)" ) {
-            SUCCEED(""); // avoid failing due to no tests
+            SUCCEED(); // avoid failing due to no tests
         }
 
         SECTION( "e (leaf)" ) {
-            SUCCEED(""); // avoid failing due to no tests
+            SUCCEED(); // avoid failing due to no tests
         }
     }
 
     SECTION( "f (leaf)" ) {
-        SUCCEED(""); // avoid failing due to no tests
+        SUCCEED(); // avoid failing due to no tests
     }
 }
 
@@ -129,9 +139,7 @@ TEST_CASE( "looped SECTION tests", "[.][failing][sections]" ) {
     int a = 1;
 
     for( int b = 0; b < 10; ++b ) {
-        std::ostringstream oss;
-        oss << "b is currently: " << b;
-        SECTION( "s1", oss.str() ) {
+        DYNAMIC_SECTION( "b is currently: " << b ) {
             CHECK( b > a );
         }
     }
@@ -174,11 +182,11 @@ TEST_CASE( "checkedElse, failing", "[failing][.]" ) {
 }
 
 TEST_CASE( "xmlentitycheck" ) {
-    SECTION( "embedded xml", "<test>it should be possible to embed xml characters, such as <, \" or &, or even whole <xml>documents</xml> within an attribute</test>" ) {
-        SUCCEED(""); // We need this here to stop it failing due to no tests
+    SECTION( "embedded xml: <test>it should be possible to embed xml characters, such as <, \" or &, or even whole <xml>documents</xml> within an attribute</test>" ) {
+        SUCCEED(); // We need this here to stop it failing due to no tests
     }
-    SECTION( "encoded chars", "these should all be encoded: &&&\"\"\"<<<&\"<<&\"" ) {
-        SUCCEED(""); // We need this here to stop it failing due to no tests
+    SECTION( "encoded chars: these should all be encoded: &&&\"\"\"<<<&\"<<&\"" ) {
+        SUCCEED(); // We need this here to stop it failing due to no tests
     }
 }
 
@@ -263,10 +271,120 @@ TEST_CASE( "vectors can be sized and resized", "[vector]" ) {
     }
 }
 
+TEMPLATE_TEST_CASE( "TemplateTest: vectors can be sized and resized", "[vector][template]", int, float, std::string, (std::tuple<int,float>) ) {
+
+    std::vector<TestType> v( 5 );
+
+    REQUIRE( v.size() == 5 );
+    REQUIRE( v.capacity() >= 5 );
+
+    SECTION( "resizing bigger changes size and capacity" ) {
+        v.resize( 10 );
+
+        REQUIRE( v.size() == 10 );
+        REQUIRE( v.capacity() >= 10 );
+    }
+    SECTION( "resizing smaller changes size but not capacity" ) {
+        v.resize( 0 );
+
+        REQUIRE( v.size() == 0 );
+        REQUIRE( v.capacity() >= 5 );
+
+        SECTION( "We can use the 'swap trick' to reset the capacity" ) {
+            std::vector<TestType> empty;
+            empty.swap( v );
+
+            REQUIRE( v.capacity() == 0 );
+        }
+    }
+    SECTION( "reserving bigger changes capacity but not size" ) {
+        v.reserve( 10 );
+
+        REQUIRE( v.size() == 5 );
+        REQUIRE( v.capacity() >= 10 );
+    }
+    SECTION( "reserving smaller does not change size or capacity" ) {
+        v.reserve( 0 );
+
+        REQUIRE( v.size() == 5 );
+        REQUIRE( v.capacity() >= 5 );
+    }
+}
+
+TEMPLATE_TEST_CASE_SIG("TemplateTestSig: vectors can be sized and resized", "[vector][template][nttp]", ((typename TestType, int V), TestType, V), (int,5), (float,4), (std::string,15), ((std::tuple<int, float>), 6)) {
+
+    std::vector<TestType> v(V);
+
+    REQUIRE(v.size() == V);
+    REQUIRE(v.capacity() >= V);
+
+    SECTION("resizing bigger changes size and capacity") {
+        v.resize(2 * V);
+
+        REQUIRE(v.size() == 2 * V);
+        REQUIRE(v.capacity() >= 2 * V);
+    }
+    SECTION("resizing smaller changes size but not capacity") {
+        v.resize(0);
+
+        REQUIRE(v.size() == 0);
+        REQUIRE(v.capacity() >= V);
+
+        SECTION("We can use the 'swap trick' to reset the capacity") {
+            std::vector<TestType> empty;
+            empty.swap(v);
+
+            REQUIRE(v.capacity() == 0);
+        }
+    }
+    SECTION("reserving bigger changes capacity but not size") {
+        v.reserve(2 * V);
+
+        REQUIRE(v.size() == V);
+        REQUIRE(v.capacity() >= 2 * V);
+    }
+    SECTION("reserving smaller does not change size or capacity") {
+        v.reserve(0);
+
+        REQUIRE(v.size() == V);
+        REQUIRE(v.capacity() >= V);
+    }
+}
+
+TEMPLATE_PRODUCT_TEST_CASE("A Template product test case", "[template][product]", (std::vector, Foo), (int, float)) {
+    TestType x;
+    REQUIRE(x.size() == 0);
+}
+
+TEMPLATE_PRODUCT_TEST_CASE_SIG("A Template product test case with array signature", "[template][product][nttp]", ((typename T, size_t S), T, S), (std::array, Bar), ((int, 9), (float, 42))) {
+    TestType x;
+    REQUIRE(x.size() > 0);
+}
+
+TEMPLATE_PRODUCT_TEST_CASE("Product with differing arities", "[template][product]", std::tuple, (int, (int, double), (int, double, float))) {
+    REQUIRE(std::tuple_size<TestType>::value >= 1);
+}
+
+using MyTypes = std::tuple<int, char, float>;
+TEMPLATE_LIST_TEST_CASE("Template test case with test types specified inside std::tuple", "[template][list]", MyTypes)
+{
+    REQUIRE(sizeof(TestType) > 0);
+}
+
+struct NonDefaultConstructibleType {
+    NonDefaultConstructibleType() = delete;
+};
+
+using MyNonDefaultConstructibleTypes = std::tuple<NonDefaultConstructibleType, char, float>;
+TEMPLATE_LIST_TEST_CASE("Template test case with test types specified inside non-default-constructible std::tuple", "[template][list]", MyNonDefaultConstructibleTypes)
+{
+    REQUIRE(sizeof(TestType) > 0);
+}
+
 // https://github.com/philsquared/Catch/issues/166
 TEST_CASE("A couple of nested sections followed by a failure", "[failing][.]") {
-    SECTION("Outer", "")
-        SECTION("Inner", "")
+    SECTION("Outer")
+        SECTION("Inner")
             SUCCEED("that's not flying - that's failing in style");
 
     FAIL("to infinity and beyond");
@@ -274,7 +392,7 @@ TEST_CASE("A couple of nested sections followed by a failure", "[failing][.]") {
 
 TEST_CASE("not allowed", "[!throws]") {
     // This test case should not be included if you run with -e on the command line
-    SUCCEED( "" );
+    SUCCEED();
 }
 
 //TEST_CASE( "Is big endian" ) {
@@ -290,6 +408,7 @@ TEST_CASE( "Tabs and newlines show in output", "[.][whitespace][failing]" ) {
 }
 
 
+#ifdef CATCH_CONFIG_WCHAR
 TEST_CASE( "toString on const wchar_t const pointer returns the string contents", "[toString]" ) {
         const wchar_t * const s = L"wide load";
         std::string result = ::Catch::Detail::stringify( s );
@@ -303,7 +422,7 @@ TEST_CASE( "toString on const wchar_t pointer returns the string contents", "[to
 }
 
 TEST_CASE( "toString on wchar_t const pointer returns the string contents", "[toString]" ) {
-        auto const s = const_cast<wchar_t* const>( L"wide load" );
+        auto const s = const_cast<wchar_t*>( L"wide load" );
         std::string result = ::Catch::Detail::stringify( s );
         CHECK( result == "\"wide load\"" );
 }
@@ -313,18 +432,13 @@ TEST_CASE( "toString on wchar_t returns the string contents", "[toString]" ) {
         std::string result = ::Catch::Detail::stringify( s );
         CHECK( result == "\"wide load\"" );
 }
+#endif
 
 TEST_CASE( "long long" ) {
     long long l = std::numeric_limits<long long>::max();
 
     REQUIRE( l == std::numeric_limits<long long>::max() );
 }
-
-//TEST_CASE( "Divide by Zero signal handler", "[.][sig]" ) {
-//    int i = 0;
-//    int x = 10/i; // This should cause the signal to fire
-//    CHECK( x == 0 );
-//}
 
 TEST_CASE( "This test 'should' fail but doesn't", "[.][failing][!shouldfail]" ) {
     SUCCEED( "oops!" );
@@ -346,6 +460,11 @@ TEST_CASE( "#961 -- Dynamically created sections should all be reported", "[.]" 
             SUCCEED( "Everything is OK" );
         }
     }
+}
+
+TEST_CASE( "#1175 - Hidden Test", "[.]" ) {
+  // Just for checking that hidden test is not listed by default
+  SUCCEED();
 }
 
 }} // namespace MiscTests

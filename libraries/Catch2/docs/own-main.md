@@ -1,6 +1,12 @@
 <a id="top"></a>
 # Supplying main() yourself
 
+**Contents**<br>
+[Let Catch take full control of args and config](#let-catch-take-full-control-of-args-and-config)<br>
+[Amending the config](#amending-the-config)<br>
+[Adding your own command line options](#adding-your-own-command-line-options)<br>
+[Version detection](#version-detection)<br>
+
 The easiest way to use Catch is to let it supply ```main()``` for you and handle configuring itself from the command line.
 
 This is achieved by writing ```#define CATCH_CONFIG_MAIN``` before the ```#include "catch.hpp"``` in *exactly one* source file.
@@ -30,7 +36,7 @@ int main( int argc, char* argv[] ) {
 
 ## Amending the config
 
-If you still want Catch to process the command line, but you want to programatically tweak the config, you can do so in one of two ways:
+If you still want Catch to process the command line, but you want to programmatically tweak the config, you can do so in one of two ways:
 
 ```c++
 #define CATCH_CONFIG_RUNNER
@@ -45,7 +51,7 @@ int main( int argc, char* argv[] )
     
   int returnCode = session.applyCommandLine( argc, argv );
   if( returnCode != 0 ) // Indicates a command line error
-  	  return returnCode;
+        return returnCode;
  
   // writing to session.configData() or session.Config() here 
   // overrides command line args
@@ -94,7 +100,7 @@ int main( int argc, char* argv[] )
   // Let Catch (using Clara) parse the command line
   int returnCode = session.applyCommandLine( argc, argv );
   if( returnCode != 0 ) // Indicates a command line error
-  	return returnCode;
+      return returnCode;
 
   // if set on the command line then 'height' is now set at this point
   if( height > 0 )

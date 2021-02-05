@@ -6,13 +6,21 @@
  */
 
 #include "catch_string_manip.h"
+#include "catch_stringref.h"
 
 #include <algorithm>
 #include <ostream>
 #include <cstring>
 #include <cctype>
+#include <vector>
 
 namespace Catch {
+
+    namespace {
+        char toLowerCh(char c) {
+            return static_cast<char>( std::tolower( c ) );
+        }
+    }
 
     bool startsWith( std::string const& s, std::string const& prefix ) {
         return s.size() >= prefix.size() && std::equal(prefix.begin(), prefix.end(), s.begin());
@@ -28,9 +36,6 @@ namespace Catch {
     }
     bool contains( std::string const& s, std::string const& infix ) {
         return s.find( infix ) != std::string::npos;
-    }
-    char toLowerCh(char c) {
-        return static_cast<char>( std::tolower( c ) );
     }
     void toLowerInPlace( std::string& s ) {
         std::transform( s.begin(), s.end(), s.begin(), toLowerCh );
@@ -60,6 +65,21 @@ namespace Catch {
                 i = std::string::npos;
         }
         return replaced;
+    }
+
+    std::vector<StringRef> splitStringRef( StringRef str, char delimiter ) {
+        std::vector<StringRef> subStrings;
+        std::size_t start = 0;
+        for(std::size_t pos = 0; pos < str.size(); ++pos ) {
+            if( str[pos] == delimiter ) {
+                if( pos - start > 1 )
+                    subStrings.push_back( str.substr( start, pos-start ) );
+                start = pos+1;
+            }
+        }
+        if( start < str.size() )
+            subStrings.push_back( str.substr( start, str.size()-start ) );
+        return subStrings;
     }
 
     pluralise::pluralise( std::size_t count, std::string const& label )

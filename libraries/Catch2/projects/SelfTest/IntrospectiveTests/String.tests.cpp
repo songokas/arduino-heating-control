@@ -14,31 +14,24 @@ namespace Catch {
         static auto isSubstring( StringRef const& stringRef ) -> bool {
             return stringRef.isSubstring();
         }
-        static auto data( StringRef const& stringRef ) -> char const* {
-            return stringRef.data();
-        }
     };
 
+
+    namespace {
     auto isOwned( StringRef const& stringRef ) -> bool {
         return StringRefTestAccess::isOwned( stringRef );
     }
     auto isSubstring( StringRef const& stringRef ) -> bool {
         return StringRefTestAccess::isSubstring( stringRef );
     }
-    auto data( StringRef const& stringRef ) -> char const* {
-        return StringRefTestAccess::data( stringRef );
-    }
-} // namespace Catch2
+    } // end anonymous namespace
 
-namespace Catch {
-    inline auto toString( Catch::StringRef const& stringRef ) -> std::string {
-        return std::string( data( stringRef ), stringRef.size() );
-    }
 } // namespace Catch
 
 TEST_CASE( "StringRef", "[Strings][StringRef]" ) {
 
     using Catch::StringRef;
+    using Catch::isOwned; using Catch::isSubstring;
 
     SECTION( "Empty string" ) {
         StringRef empty;
@@ -53,7 +46,7 @@ TEST_CASE( "StringRef", "[Strings][StringRef]" ) {
         REQUIRE( s.size() == 5 );
         REQUIRE( isSubstring( s ) == false );
 
-        auto rawChars = data( s );
+        auto rawChars = s.currentData();
         REQUIRE( std::strcmp( rawChars, "hello" ) == 0 );
 
         SECTION( "c_str() does not cause copy" ) {
@@ -72,9 +65,7 @@ TEST_CASE( "StringRef", "[Strings][StringRef]" ) {
 
         original.c_str(); // Forces it to take ownership
 
-        REQUIRE( isSubstring( original ) == false );
         REQUIRE( isOwned( original ) );
-
     }
 
 
@@ -92,14 +83,18 @@ TEST_CASE( "StringRef", "[Strings][StringRef]" ) {
             REQUIRE( isSubstring( ss ) );
             REQUIRE( isOwned( ss ) == false );
 
-            auto rawChars = data( ss );
-            REQUIRE( rawChars == data( s ) ); // same pointer value
+            auto rawChars = ss.currentData();
+            REQUIRE( rawChars == s.currentData() ); // same pointer value
             REQUIRE( ss.c_str() != rawChars );
 
-            REQUIRE( isSubstring( ss ) == false );
             REQUIRE( isOwned( ss ) );
 
-            REQUIRE( data( ss ) != data( s ) ); // different pointer value
+            SECTION( "Self-assignment after substring" ) {
+                ss = *&ss; // the *& are there to suppress warnings (see: "Improvements to Clang's diagnostics" in https://rev.ng/gitlab/revng-bar-2019/clang/raw/master/docs/ReleaseNotes.rst)
+                REQUIRE( isOwned(ss) == false );
+                REQUIRE( ss == "hello" );
+                REQUIRE( rawChars == ss.currentData() ); // same pointer value
+            }
         }
 
         SECTION( "non-zero-based substring") {
@@ -210,3 +205,15 @@ TEST_CASE( "replaceInPlace", "[Strings][StringManip]" ) {
         CHECK( s == "didn|'t" );
     }
 }
+
+TEST_CASE( "splitString", "[Strings]" ) {
+    using namespace Catch::Matchers;
+    using Catch::splitStringRef;
+    using Catch::StringRef;
+
+    CHECK_THAT( splitStringRef("", ',' ), Equals(std::vector<StringRef>() ) );
+    CHECK_THAT( splitStringRef("abc", ',' ), Equals(std::vector<StringRef>{"abc"} ) );
+    CHECK_THAT( splitStringRef("abc,def", ',' ), Equals(std::vector<StringRef>{"abc", "def"} ) );
+}
+
+

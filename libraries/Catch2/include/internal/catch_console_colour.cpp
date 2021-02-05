@@ -69,7 +69,7 @@ namespace {
             originalBackgroundAttributes = csbiInfo.wAttributes & ~( FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY );
         }
 
-        virtual void use( Colour::Code _colourCode ) override {
+        void use( Colour::Code _colourCode ) override {
             switch( _colourCode ) {
                 case Colour::None:      return setTextAttribute( originalForegroundAttributes );
                 case Colour::White:     return setTextAttribute( FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE );
@@ -132,7 +132,7 @@ namespace {
     // https://github.com/philsquared/Catch/pull/131
     class PosixColourImpl : public IColourImpl {
     public:
-        virtual void use( Colour::Code _colourCode ) override {
+        void use( Colour::Code _colourCode ) override {
             switch( _colourCode ) {
                 case Colour::None:
                 case Colour::White:     return setColour( "[0m" );
@@ -160,7 +160,8 @@ namespace {
 
     private:
         void setColour( const char* _escapeCode ) {
-            Catch::cout() << '\033' << _escapeCode;
+            getCurrentContext().getConfig()->stream()
+                << '\033' << _escapeCode;
         }
     };
 
@@ -169,7 +170,12 @@ namespace {
 #ifdef CATCH_PLATFORM_MAC
             !isDebuggerActive() &&
 #endif
-            isatty(STDOUT_FILENO);
+#if !(defined(__DJGPP__) && defined(__STRICT_ANSI__))
+            isatty(STDOUT_FILENO)
+#else
+            false
+#endif
+            ;
     }
     IColourImpl* platformColourInstance() {
         ErrnoGuard guard;
@@ -216,7 +222,13 @@ namespace Catch {
 
     void Colour::use( Code _colourCode ) {
         static IColourImpl* impl = platformColourInstance();
-        impl->use( _colourCode );
+        // Strictly speaking, this cannot possibly happen.
+        // However, under some conditions it does happen (see #1626),
+        // and this change is small enough that we can let practicality
+        // triumph over purity in this case.
+        if (impl != NULL) {
+            impl->use( _colourCode );
+        }
     }
 
     std::ostream& operator << ( std::ostream& os, Colour const& ) {

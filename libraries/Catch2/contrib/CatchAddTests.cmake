@@ -50,14 +50,18 @@ string(REPLACE "\n" ";" output "${output}")
 
 # Parse output
 foreach(line ${output})
-  # Test name; strip spaces to get just the name...
-  string(REGEX REPLACE " +" "" test "${line}")
+  set(test ${line})
+  # Escape characters in test case names that would be parsed by Catch2
+  set(test_name ${test})
+  foreach(char , [ ])
+    string(REPLACE ${char} "\\${char}" test_name ${test_name})
+  endforeach(char)
   # ...and add to script
   add_command(add_test
     "${prefix}${test}${suffix}"
     ${TEST_EXECUTOR}
     "${TEST_EXECUTABLE}"
-    "${test}"
+    "${test_name}"
     ${extra_args}
   )
   add_command(set_tests_properties

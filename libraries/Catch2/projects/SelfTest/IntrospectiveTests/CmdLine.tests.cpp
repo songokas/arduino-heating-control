@@ -15,7 +15,7 @@
 #   pragma clang diagnostic ignored "-Wc++98-compat"
 #endif
 
-inline Catch::TestCase fakeTestCase( const char* name, const char* desc = "" ){ return Catch::makeTestCase( nullptr, "", name, desc, CATCH_INTERNAL_LINEINFO ); }
+inline Catch::TestCase fakeTestCase(const char* name, const char* desc = "") { return Catch::makeTestCase(nullptr, "", { name, desc }, CATCH_INTERNAL_LINEINFO); }
 
 TEST_CASE( "Parse test names and tags" ) {
 
@@ -280,7 +280,6 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
         CHECK(config.processName == "");
     }
 
-
     SECTION("default - no arguments") {
         auto result = cli.parse({"test"});
         CHECK(result);
@@ -288,15 +287,19 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
         CHECK(config.shouldDebugBreak == false);
         CHECK(config.abortAfter == -1);
         CHECK(config.noThrow == false);
-        CHECK(config.reporterNames.empty());
+        CHECK(config.reporterName == "console");
+
+        Catch::Config cfg(config);
+        CHECK_FALSE(cfg.hasTestFilters());
     }
 
     SECTION("test lists") {
-        SECTION("1 test", "Specify one test case using") {
+        SECTION("Specify one test case using") {
             auto result = cli.parse({"test", "test1"});
             CHECK(result);
 
             Catch::Config cfg(config);
+            REQUIRE(cfg.hasTestFilters());
             REQUIRE(cfg.testSpec().matches(fakeTestCase("notIncluded")) == false);
             REQUIRE(cfg.testSpec().matches(fakeTestCase("test1")));
         }
@@ -305,6 +308,7 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
             CHECK(result);
 
             Catch::Config cfg(config);
+            REQUIRE(cfg.hasTestFilters());
             REQUIRE(cfg.testSpec().matches(fakeTestCase("test1")) == false);
             REQUIRE(cfg.testSpec().matches(fakeTestCase("alwaysIncluded")));
         }
@@ -314,6 +318,7 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
             CHECK(result);
 
             Catch::Config cfg(config);
+            REQUIRE(cfg.hasTestFilters());
             REQUIRE(cfg.testSpec().matches(fakeTestCase("test1")) == false);
             REQUIRE(cfg.testSpec().matches(fakeTestCase("alwaysIncluded")));
         }
@@ -324,27 +329,30 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
         SECTION("-r/console") {
             CHECK(cli.parse({"test", "-r", "console"}));
 
-            REQUIRE(config.reporterNames[0] == "console");
+            REQUIRE(config.reporterName == "console");
         }
         SECTION("-r/xml") {
             CHECK(cli.parse({"test", "-r", "xml"}));
 
-            REQUIRE(config.reporterNames[0] == "xml");
-        }
-        SECTION("-r xml and junit") {
-            CHECK(cli.parse({"test", "-r", "xml", "-r", "junit"}));
-
-            REQUIRE(config.reporterNames.size() == 2);
-            REQUIRE(config.reporterNames[0] == "xml");
-            REQUIRE(config.reporterNames[1] == "junit");
+            REQUIRE(config.reporterName == "xml");
         }
         SECTION("--reporter/junit") {
             CHECK(cli.parse({"test", "--reporter", "junit"}));
 
-            REQUIRE(config.reporterNames[0] == "junit");
+            REQUIRE(config.reporterName == "junit");
+        }
+        SECTION("Only one reporter is accepted") {
+            REQUIRE_FALSE(cli.parse({ "test", "-r", "xml", "-r", "junit" }));
+        }
+        SECTION("must match one of the available ones") {
+            auto result = cli.parse({"test", "--reporter", "unsupported"});
+            CHECK(!result);
+
+#ifndef CATCH_CONFIG_DISABLE_MATCHERS
+            REQUIRE_THAT(result.errorMessage(), Contains("Unrecognized reporter"));
+#endif
         }
     }
-
 
     SECTION("debugger") {
         SECTION("-b") {
@@ -452,6 +460,32 @@ TEST_CASE( "Process can be configured on command line", "[config][command-line]"
 #ifndef CATCH_CONFIG_DISABLE_MATCHERS
             CHECK_THAT( result.errorMessage(), Contains( "colour mode must be one of" ) );
 #endif
+        }
+    }
+
+    SECTION("Benchmark options") {
+        SECTION("samples") {
+            CHECK(cli.parse({ "test", "--benchmark-samples=200" }));
+
+            REQUIRE(config.benchmarkSamples == 200);
+        }
+        
+        SECTION("resamples") {
+            CHECK(cli.parse({ "test", "--benchmark-resamples=20000" }));
+
+            REQUIRE(config.benchmarkResamples == 20000);
+        }
+
+        SECTION("resamples") {
+            CHECK(cli.parse({ "test", "--benchmark-confidence-interval=0.99" }));
+
+            REQUIRE(config.benchmarkConfidenceInterval == Catch::Detail::Approx(0.99));
+        }
+
+        SECTION("resamples") {
+            CHECK(cli.parse({ "test", "--benchmark-no-analysis" }));
+
+            REQUIRE(config.benchmarkNoAnalysis);
         }
     }
 }

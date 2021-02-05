@@ -10,7 +10,7 @@
 // Let Catch provide the required interfaces:
 #define CATCH_CONFIG_EXTERNAL_INTERFACES
 
-#include "catch.hpp"
+#include <catch2/catch.hpp>
 #include <iostream>
 
 // -----------------------------------------------------------------------
@@ -187,8 +187,7 @@ void print( std::ostream& os, int const level, std::string const& title, Catch::
 
 void print( std::ostream& os, int const level, std::string const& title, Catch::SectionInfo const& info ) {
     os << ws(level  ) << title << ":\n"
-       << ws(level+1) << "- name: "         << info.name << "\n"
-       << ws(level+1) << "- description: '" << info.description << "'\n";
+       << ws(level+1) << "- name: "         << info.name << "\n";
     print( os, level+1 , "- lineInfo", info.lineInfo );
 }
 
@@ -306,7 +305,7 @@ struct MyListener : Catch::TestEventListenerBase {
     ~MyListener();
 
     // The whole test run starting
-    virtual void testRunStarting( Catch::TestRunInfo const& testRunInfo ) override {
+    void testRunStarting( Catch::TestRunInfo const& testRunInfo ) override {
         std::cout
             << std::boolalpha
             << "\nEvent: testRunStarting:\n";
@@ -314,7 +313,7 @@ struct MyListener : Catch::TestEventListenerBase {
     }
 
     // The whole test run ending
-    virtual void testRunEnded( Catch::TestRunStats const& testRunStats ) override {
+    void testRunEnded( Catch::TestRunStats const& testRunStats ) override {
         std::cout
             << dashed_line
             << "\nEvent: testRunEnded:\n";
@@ -322,7 +321,7 @@ struct MyListener : Catch::TestEventListenerBase {
     }
 
     // A test is being skipped (because it is "hidden")
-    virtual void skipTest( Catch::TestCaseInfo const& testInfo ) override {
+    void skipTest( Catch::TestCaseInfo const& testInfo ) override {
         std::cout
             << dashed_line
             << "\nEvent: skipTest:\n";
@@ -330,7 +329,7 @@ struct MyListener : Catch::TestEventListenerBase {
     }
 
     // Test cases starting
-    virtual void testCaseStarting( Catch::TestCaseInfo const& testInfo ) override {
+    void testCaseStarting( Catch::TestCaseInfo const& testInfo ) override {
         std::cout
             << dashed_line
             << "\nEvent: testCaseStarting:\n";
@@ -338,30 +337,30 @@ struct MyListener : Catch::TestEventListenerBase {
     }
 
     // Test cases ending
-    virtual void testCaseEnded( Catch::TestCaseStats const& testCaseStats ) override {
+    void testCaseEnded( Catch::TestCaseStats const& testCaseStats ) override {
         std::cout << "\nEvent: testCaseEnded:\n";
         print( std::cout, 1, "testCaseStats", testCaseStats );
     }
 
     // Sections starting
-    virtual void sectionStarting( Catch::SectionInfo const& sectionInfo ) override {
+    void sectionStarting( Catch::SectionInfo const& sectionInfo ) override {
         std::cout << "\nEvent: sectionStarting:\n";
         print( std::cout, 1, "- sectionInfo", sectionInfo );
     }
 
     // Sections ending
-    virtual void sectionEnded( Catch::SectionStats const& sectionStats ) override {
+    void sectionEnded( Catch::SectionStats const& sectionStats ) override {
         std::cout << "\nEvent: sectionEnded:\n";
         print( std::cout, 1, "- sectionStats", sectionStats );
     }
 
     // Assertions before/ after
-    virtual void assertionStarting( Catch::AssertionInfo const& assertionInfo ) override {
+    void assertionStarting( Catch::AssertionInfo const& assertionInfo ) override {
         std::cout << "\nEvent: assertionStarting:\n";
         print( std::cout, 1, "- assertionInfo", assertionInfo );
     }
 
-    virtual bool assertionEnded( Catch::AssertionStats const& assertionStats ) override {
+    bool assertionEnded( Catch::AssertionStats const& assertionStats ) override {
         std::cout << "\nEvent: assertionEnded:\n";
         print( std::cout, 1, "- assertionStats", assertionStats );
         return true;
@@ -388,16 +387,16 @@ TEST_CASE( "2: Testcase with sections", "[tag-A][tag-B]" ) {
     REQUIRE( i == 42 );
 
     SECTION("Section 1") {
-        INFO("Section 1")
+        INFO("Section 1");
         i = 7;
         SECTION("Section 1.1") {
-            INFO("Section 1.1")
+            INFO("Section 1.1");
             REQUIRE( i == 42 );
         }
     }
 
     SECTION("Section 2") {
-        INFO("Section 2")
+        INFO("Section 2");
         REQUIRE( i == 42 );
     }
     WARN("At end of test case");

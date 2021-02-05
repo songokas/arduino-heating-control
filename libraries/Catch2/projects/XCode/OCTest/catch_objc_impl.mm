@@ -1,6 +1,7 @@
 // This file #includes all the .cpp files into a single .mm
 // - so they get compiled as ObjectiveC++
 
+#include "../../../include/internal/catch_tostring.cpp"
 #include "../../../include/internal/catch_approx.cpp"
 #include "../../../include/internal/catch_assertionhandler.cpp"
 #include "../../../include/internal/catch_assertionresult.cpp"
@@ -29,6 +30,7 @@
 #include "../../../include/internal/catch_matchers.cpp"
 #include "../../../include/internal/catch_matchers_string.cpp"
 #include "../../../include/internal/catch_message.cpp"
+#include "../../../include/internal/catch_output_redirect.cpp"
 #include "../../../include/internal/catch_random_number_generator.cpp"
 #include "../../../include/internal/catch_registry_hub.cpp"
 #include "../../../include/internal/catch_reporter_registry.cpp"
@@ -51,8 +53,8 @@
 #include "../../../include/internal/catch_test_spec.cpp"
 #include "../../../include/internal/catch_test_spec_parser.cpp"
 #include "../../../include/internal/catch_timer.cpp"
-#include "../../../include/internal/catch_tostring.cpp"
 #include "../../../include/internal/catch_totals.cpp"
+#include "../../../include/internal/catch_uncaught_exceptions.cpp"
 #include "../../../include/internal/catch_version.cpp"
 #include "../../../include/internal/catch_wildcard_pattern.cpp"
 #include "../../../include/internal/catch_xmlwriter.cpp"
@@ -63,5 +65,5 @@
 #include "../../../include/reporters/catch_reporter_compact.cpp"
 #include "../../../include/reporters/catch_reporter_console.cpp"
 #include "../../../include/reporters/catch_reporter_junit.cpp"
-#include "../../../include/reporters/catch_reporter_multi.cpp"
+#include "../../../include/reporters/catch_reporter_listening.cpp"
 #include "../../../include/reporters/catch_reporter_xml.cpp"
