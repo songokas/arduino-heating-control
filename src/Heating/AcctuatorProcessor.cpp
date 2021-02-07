@@ -63,7 +63,7 @@ void AcctuatorProcessor::handlePacket(const Packet & packet)
     }
     if (packet.expectedTemperature != 0) {
         zoneInfo.senderExpectedTemperature = (float)packet.expectedTemperature / 100;
-        zoneInfo.expectedDtReceived = now();
+        zoneInfo.dtExpectedReceived = now();
     }
 }
 

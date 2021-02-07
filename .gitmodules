@@ -16,3 +16,6 @@
 [submodule "libraries/Arduino-Entropy-Library"]
 	path = libraries/Arduino-Entropy-Library
 	url = https://github.com/pmjdebruijn/Arduino-Entropy-Library
+[submodule "libraries/Catch2"]
+	path = libraries/Catch2
+	url = https://github.com/catchorg/Catch2.git

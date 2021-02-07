@@ -44,13 +44,15 @@ cd install && wget https://downloads.arduino.cc/arduino-1.8.13-linux64.tar.xz &&
 
 each sender defines an id which is a pin on the receiver (master, slave)
 
-slave ids are mapped with adding 100
+slave ids are mapped with adding 100 for nrf24l01 and by 200 for tasmota
 
-e.g. if slave controls with pin 5 sender id should be 105
+e.g. if slave controls with pin 5 sender id should be 105 for or 205 for tasmota
 
 master pins and sender ids match
 
 configuration is controlled through http interface
+
+tasmota module pins should use separate channel pwms
 
 ## Howto
 

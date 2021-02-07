@@ -127,5 +127,10 @@ SCENARIO( "recording zone states", "[zone]" ) {
                 REQUIRE( zone.isOn() == false);
             }
         }
+        WHEN( "confirmation received" ) {
+            REQUIRE_FALSE(zone.hasConfirmation());
+            zone.dtConfirmationReceived = now();
+            REQUIRE(zone.hasConfirmation());
+        }
     }
 }

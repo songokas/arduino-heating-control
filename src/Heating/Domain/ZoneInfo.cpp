@@ -40,7 +40,12 @@ bool ZoneInfo::isOn() const
 
 bool ZoneInfo::isExpectedOn() const
 {
-    return (now() - expectedDtReceived < (Config::MAX_DELAY / 1000)) && senderExpectedTemperature != 0;
+    return (now() - dtExpectedReceived < (Config::MAX_DELAY / 1000)) && senderExpectedTemperature != 0;
+}
+
+bool ZoneInfo::hasConfirmation() const
+{
+    return dtConfirmationReceived > 0 && (now() - dtConfirmationReceived) < 600;
 }
 
 bool ZoneInfo::isWarm(unsigned int acctuatorWarmupTime) const

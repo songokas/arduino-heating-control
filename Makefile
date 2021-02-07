@@ -2,6 +2,9 @@ all: master slave sender
 
 master: master/Makefile
 	cd master && make -j8
+
+upload-master: master
+	cd master && make upload && make monitor
 	
 slave: slave/Makefile
 	cd slave && make -j8
@@ -16,5 +19,9 @@ clean:
 	cd master && make clean
 	cd slave && make clean
 	cd sender && make clean
+	rm -rf tests/build
+
+test:
+	cd tests && ./test.sh
 
 .PHONY: master slave sender clean

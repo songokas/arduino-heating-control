@@ -77,12 +77,16 @@ const char HEATING_TOPIC [] PROGMEM {"heating/nodes/%s/temperature"};
 const char HEATING_ZIGBEE_TOPIC [] PROGMEM {"zigbee2mqtt/heating/nodes/%s"};
 const char * SUBSCRIBE_TOPIC = "heating/nodes/#";
 const char * SUBSCRIBE_ZIGBEE_TOPIC = "zigbee2mqtt/heating/nodes/#";
-const char CHANNEL_SLAVE[] PROGMEM {"cmnd/heating-slave/pwm%d"};
-const char INFO_NODE_TOPIC [] PROGMEM {"stats/heating/nodes/%s"};
+const char CHANNEL_SLAVE_CONTROL[] PROGMEM {"cmnd/heating-slave/pwm%d"};
+const char * CHANNEL_SLAVE_CONFIRM {"stat/heating-slave/RESULT"};
+const char INFO_NODE_TOPIC [] PROGMEM {"stat/heating/nodes/%s"};
 const char INFO_NODE_MESSAGE [] PROGMEM {"{\"temperature\":%0.2f,\"power\":%d}"};
-const char INFO_MASTER_TOPIC [] PROGMEM {"stats/heating/master/info"};
+const char INFO_MASTER_TOPIC [] PROGMEM {"stat/heating/master/info"};
 const char INFO_MASTER_MESSAGE [] PROGMEM {"{\"power\":%d}"};
-const char NTP_MASTER_TOPIC [] PROGMEM {"stats/heating/master/ntp"};
+const char NTP_MASTER_TOPIC [] PROGMEM {"stat/heating/master/ntp"};
+const char NTP_MASTER_MESSAGE [] PROGMEM {"{\"updated\":%s,\"elapsed\":%lu}"};
+const char * SUBSCRIBE_TOPICS[] {SUBSCRIBE_TOPIC, SUBSCRIBE_ZIGBEE_TOPIC, CHANNEL_SLAVE_CONFIRM};
+
 
 // mqtt is using c style callback and we require these
 StaticConfig<Config::MAX_ZONES, Config::MAX_ZONE_NAME_LENGTH, Config::MAX_TIMES_PER_ZONE> config {};
@@ -174,7 +178,7 @@ int main()
 
     Serial << F("Wait for mqtt server on ") << MQTT_SERVER_ADDRESS << endl;
 
-    reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPIC, SUBSCRIBE_ZIGBEE_TOPIC) ? 0 : 1;
+    reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPICS, COUNT_OF(SUBSCRIBE_TOPICS)) ? 0 : 1;
 
     mqttClient.setCallback(mqttCallback);
 
@@ -236,7 +240,7 @@ int main()
 
             if (!sendKeepAlive(mqttClient, CHANNEL_KEEP_ALIVE, millis())) {
                 publishFailed++;
-                reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPIC, SUBSCRIBE_ZIGBEE_TOPIC)
+                reconnectMqttFailed = connectToMqtt(mqttClient, MQTT_CLIENT_NAME, SUBSCRIBE_TOPICS, COUNT_OF(SUBSCRIBE_TOPICS))
                     ? 0 : reconnectMqttFailed + 1;
             } else {
                 publishFailed = 0;
@@ -269,7 +273,7 @@ int main()
         if (millis() - timeUpdate >= 3600000UL) {
             TimeOperation timeUpdated = updateTime();
             resetWatchDog();
-            if (!sendKeepAlive(mqttClient, NTP_MASTER_TOPIC, timeUpdated.elapsed)) {
+            if (!sendNtp(mqttClient, timeUpdated)) {
                 Serial << F("Failed to send ntp message") << endl;
             }
             timeUpdate = millis();

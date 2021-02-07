@@ -1,3 +1,14 @@
+#include "Heating/MqttParser.h"
+
+using Heating::parsePwmConfirmation;
+using Heating::retrieveJson;
+
+struct TimeOperation
+{
+    bool updated;
+    unsigned long elapsed;
+};
+
 void printWebsite(EthernetClient & client, const AcctuatorProcessor & manager, const HeaterInfo & heaterInfo, uint8_t networkFailures)
 {
     unsigned int buffIndex = 0;
@@ -73,35 +84,29 @@ bool handlePacket(AcctuatorProcessor & processor, const Packet & packet)
     return false;
 }
 
-bool retrieveJson(JsonDocument & doc, const char * content)
-{
-    DeserializationError error = deserializeJson(doc, content);
-    if (error) {
-        Serial << F("deserializeJson() failed: ") << error.c_str() << endl;
-        return false;
-    }
-    return true;
-}
-
 void handleAcctuator(PubSubClient & mqttClient, IEncryptedMesh & radio, ZoneInfo & zoneInfo)
 {
     zoneInfo.print();
 
-    if (zoneInfo.pin.id > 200) {
+    if (zoneInfo.pin.id > Config::TASMOTA_SLAVE_PIN_START) {
         char topic[MQTT_MAX_LEN_TOPIC] {0};
-        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE, zoneInfo.pin.id - 200);
+        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE_CONTROL, zoneInfo.pin.id - Config::TASMOTA_SLAVE_PIN_START);
         char message[6] {0};
         snprintf_P(message, COUNT_OF(message), PSTR("%u"), zoneInfo.getPwmValue());
         if (!mqttClient.publish(topic, message)) {
             zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
             Serial << F("Failed to send ") << topic << F(" Message: ") << message << endl;
         } else {
+            byte state = zoneInfo.getState();
+            if (!zoneInfo.hasConfirmation()) {
+                state = 0;
+            }
             zoneInfo.removeError(Error::CONTROL_PACKET_FAILED);
-            zoneInfo.recordState(zoneInfo.getState());
+            zoneInfo.recordState(state);
         }
         
-    } else if (zoneInfo.pin.id > 100) {
-        ControllPacket controllPacket {(uint8_t)(zoneInfo.pin.id - 100), zoneInfo.getPwmState()};
+    } else if (zoneInfo.pin.id > Config::NRF24_SLAVE_PIN_START) {
+        ControllPacket controllPacket {(uint8_t)(zoneInfo.pin.id - Config::NRF24_SLAVE_PIN_START), zoneInfo.getPwmState()};
         if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
             zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
             Serial << F("Failed to send ") << controllPacket.id << F(" State: ") << zoneInfo.getPwmState() << endl;
@@ -258,6 +263,18 @@ void handleHeater(AcctuatorProcessor & processor, HeaterInfo & heaterInfo, PubSu
     }
 }
 
+bool sendNtp(PubSubClient & mqttClient, TimeOperation & op)
+{
+    char topic[MQTT_MAX_LEN_TOPIC] {0};
+    snprintf_P(topic, COUNT_OF(topic), NTP_MASTER_TOPIC);
+    char message[MQTT_MAX_LEN_MESSAGE] {0};
+    snprintf_P(message, COUNT_OF(message), NTP_MASTER_MESSAGE, op.updated ? "true" : "false", op.elapsed);
+    if (!mqttClient.publish(topic, message)) {
+        return false;
+    }
+    return true;
+}
+
 bool syncTimeZoneTime(unsigned long utc)
 {
     TimeChangeRule eestSummer = {"EESTS", Last, Sun, Mar, 3, 180};  //UTC + 3 hours
@@ -267,7 +284,6 @@ bool syncTimeZoneTime(unsigned long utc)
     setTime(localTime);
     return true;
 }
-
 
 bool maintainDhcp()
 {
@@ -306,7 +322,7 @@ bool maintainDhcp()
   return true;
 }
 
-bool connectToMqtt(PubSubClient & client, const char * clientName, const char * subscribeTopic, const char * secondTopic)
+bool connectToMqtt(PubSubClient & client, const char * clientName, const char * subscribeTopics[], uint8_t topicSize)
 {
     if (!client.connected()) {
         Serial << F("Attempting MQTT connection...");
@@ -322,10 +338,12 @@ bool connectToMqtt(PubSubClient & client, const char * clientName, const char * 
             return false;
         } else {
             Serial << F("connected.") << endl;
-            if (client.subscribe(subscribeTopic) && client.subscribe(secondTopic)) {
-                Serial << F("Subscribed to: ") << subscribeTopic << F(" ") << secondTopic << endl;
-            } else {
-                Serial << F("Failed to subscribe to: ") << subscribeTopic << F(" ") << secondTopic << endl;
+            for (uint8_t i = 0; i < topicSize; i++) {
+                if (client.subscribe(subscribeTopics[i])) {
+                    Serial << F("Subscribed to: ") << subscribeTopics[i] << endl;
+                } else {
+                    Serial << F("Failed to subscribe to: ") << subscribeTopics[i] << endl;
+                }
             }
         }
         resetWatchDog();
@@ -404,6 +422,22 @@ void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
         }
     }
 
+    // max tastoma pins
+    uint8_t ids[10] {0};
+    if (parsePwmConfirmation(topic, message, CHANNEL_SLAVE_CONFIRM, ids, COUNT_OF(ids))) {
+        for (auto id: ids) {
+
+            auto zoneConfig = processor.getZoneConfigById(id);
+            if (zoneConfig == nullptr) {
+                continue;
+            }
+            ZoneInfo & zoneInfo = processor.getAvailableZoneInfoById(id);
+            Serial << F("Confirmation received ") << id << endl;
+            zoneInfo.dtConfirmationReceived = now();
+        }
+        return;
+    }
+
     Serial << "Not handled: " << topic << endl; 
 }
 
@@ -472,11 +506,7 @@ void checkSockStatus(EthernetServer & server)
     }
 }
 
-struct TimeOperation
-{
-    bool updated;
-    unsigned long elapsed;
-};
+
 
 TimeOperation updateTime()
 {
@@ -502,6 +532,7 @@ TimeOperation updateTime()
 
     ThreeWire myWire(10, 9, 11); // DATA, SCLK, RESET
     RtcDS1302<ThreeWire> rtc(myWire);
+    unsigned long begin = millis();
     //RtcDS3231<TwoWire> rtc(myWire);
     rtcSetup(rtc);
     if (rtc.IsDateTimeValid()) {
@@ -511,6 +542,7 @@ TimeOperation updateTime()
     } else {
         Serial << F("Time not updated") << endl;
     }
-    return TimeOperation{updated, 0};
+    unsigned long end = millis();
+    return TimeOperation{updated, end - begin};
 #endif
 }
