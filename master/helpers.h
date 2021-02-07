@@ -88,9 +88,9 @@ void handleAcctuator(PubSubClient & mqttClient, IEncryptedMesh & radio, ZoneInfo
 {
     zoneInfo.print();
 
-    if (zoneInfo.pin.id > 200) {
+    if (zoneInfo.pin.id > Config::TASMOTA_SLAVE_PIN_START) {
         char topic[MQTT_MAX_LEN_TOPIC] {0};
-        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE_CONTROL, zoneInfo.pin.id - 200);
+        snprintf_P(topic, COUNT_OF(topic), CHANNEL_SLAVE_CONTROL, zoneInfo.pin.id - Config::TASMOTA_SLAVE_PIN_START);
         char message[6] {0};
         snprintf_P(message, COUNT_OF(message), PSTR("%u"), zoneInfo.getPwmValue());
         if (!mqttClient.publish(topic, message)) {
@@ -105,8 +105,8 @@ void handleAcctuator(PubSubClient & mqttClient, IEncryptedMesh & radio, ZoneInfo
             zoneInfo.recordState(state);
         }
         
-    } else if (zoneInfo.pin.id > 100) {
-        ControllPacket controllPacket {(uint8_t)(zoneInfo.pin.id - 100), zoneInfo.getPwmState()};
+    } else if (zoneInfo.pin.id > Config::NRF24_SLAVE_PIN_START) {
+        ControllPacket controllPacket {(uint8_t)(zoneInfo.pin.id - Config::NRF24_SLAVE_PIN_START), zoneInfo.getPwmState()};
         if (!radio.send(&controllPacket, sizeof(controllPacket), 0, Config::ADDRESS_SLAVE, 2)) {
             zoneInfo.addError(Error::CONTROL_PACKET_FAILED);
             Serial << F("Failed to send ") << controllPacket.id << F(" State: ") << zoneInfo.getPwmState() << endl;
@@ -422,15 +422,17 @@ void mqttCallback(const char * topic, unsigned char * payload, unsigned int len)
         }
     }
 
+    // max tastoma pins
     uint8_t ids[10] {0};
     if (parsePwmConfirmation(topic, message, CHANNEL_SLAVE_CONFIRM, ids, COUNT_OF(ids))) {
         for (auto id: ids) {
+
             auto zoneConfig = processor.getZoneConfigById(id);
             if (zoneConfig == nullptr) {
                 continue;
             }
             ZoneInfo & zoneInfo = processor.getAvailableZoneInfoById(id);
-            Serial << "Confirmation received" << id << endl;
+            Serial << F("Confirmation received ") << id << endl;
             zoneInfo.dtConfirmationReceived = now();
         }
         return;

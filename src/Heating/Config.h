@@ -104,6 +104,9 @@ namespace Heating
             float temperatureDropWait {0.7};
             uint8_t minPwmState {30}; //percent
 
+            static const uint8_t NRF24_SLAVE_PIN_START = 100;
+            static const uint8_t TASMOTA_SLAVE_PIN_START = 200;
+
             virtual ZoneConfig & getZone(uint8_t i) = 0;
             virtual const ZoneConfig & getZone(uint8_t i) const = 0;
             virtual uint8_t getZoneArrLength() const = 0;

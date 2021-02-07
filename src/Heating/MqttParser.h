@@ -5,6 +5,7 @@
 
 #include "CommonModule/MacroHelper.h"
 #include "MqttModule/MqttConfig.h"
+#include "Heating/Config.h"
 
 namespace Heating
 {
@@ -23,11 +24,10 @@ namespace Heating
         return true;
     }
 
+    // parse pwm confirmation from tasmota
     bool inline parsePwmConfirmation(const char * topic, const char * message, const char * expectedChannel, uint8_t * ids, uint8_t idSize)
     {
-        char confirmTopic[MQTT_MAX_LEN_TOPIC] {0};
-        snprintf_P(confirmTopic, COUNT_OF(confirmTopic), expectedChannel);
-        if (strncmp(confirmTopic, topic, strlen(confirmTopic)) != 0) {
+        if (strncmp(expectedChannel, topic, strlen(expectedChannel)) != 0) {
             return false;
         }
         StaticJsonDocument<MAX_LEN_JSON_MESSAGE> doc;
@@ -57,8 +57,7 @@ namespace Heating
                 continue;
             }
 
-            // mqtt zones above 200
-            uint8_t id = pwmIndex + 200;
+            uint8_t id = pwmIndex + Config::TASMOTA_SLAVE_PIN_START;
       
             ids[i] = id;
             i++;

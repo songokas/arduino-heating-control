@@ -2,6 +2,9 @@ all: master slave sender
 
 master: master/Makefile
 	cd master && make -j8
+
+upload-master: master
+	cd master && make upload && make monitor
 	
 slave: slave/Makefile
 	cd slave && make -j8

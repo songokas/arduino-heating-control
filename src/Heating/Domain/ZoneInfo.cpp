@@ -45,7 +45,7 @@ bool ZoneInfo::isExpectedOn() const
 
 bool ZoneInfo::hasConfirmation() const
 {
-    return (now() - dtConfirmationReceived) < 600UL;
+    return dtConfirmationReceived > 0 && (now() - dtConfirmationReceived) < 600;
 }
 
 bool ZoneInfo::isWarm(unsigned int acctuatorWarmupTime) const

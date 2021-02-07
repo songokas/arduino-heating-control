@@ -78,7 +78,7 @@ const char HEATING_ZIGBEE_TOPIC [] PROGMEM {"zigbee2mqtt/heating/nodes/%s"};
 const char * SUBSCRIBE_TOPIC = "heating/nodes/#";
 const char * SUBSCRIBE_ZIGBEE_TOPIC = "zigbee2mqtt/heating/nodes/#";
 const char CHANNEL_SLAVE_CONTROL[] PROGMEM {"cmnd/heating-slave/pwm%d"};
-const char CHANNEL_SLAVE_CONFIRM[] PROGMEM {"stat/heating-slave/result"};
+const char * CHANNEL_SLAVE_CONFIRM {"stat/heating-slave/RESULT"};
 const char INFO_NODE_TOPIC [] PROGMEM {"stat/heating/nodes/%s"};
 const char INFO_NODE_MESSAGE [] PROGMEM {"{\"temperature\":%0.2f,\"power\":%d}"};
 const char INFO_MASTER_TOPIC [] PROGMEM {"stat/heating/master/info"};
